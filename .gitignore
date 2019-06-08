@@ -1,3 +1,7 @@
+NadVibS.exe
+*.a
+*.mod
 .vscode/
+*.in
 temp*
 ReadOnly.f90
