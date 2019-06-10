@@ -1230,9 +1230,9 @@ end program main
             write(unit=RESTARTFILE,fmt='(a)')' ITERATION NUMBER TO RESTART FROM'
             write(unit=RESTARTFILE,fmt='(i5)')iter
             write(unit=RESTARTFILE,fmt='(a)')' ALPHA COEFFICIENTS -- diagonal T matrix elements'
-            write(unit=RESTARTFILE,*)alpha(1:iter)
+            write(unit=RESTARTFILE,fmt=*)alpha(1:iter)
             write(unit=RESTARTFILE,fmt='(a)')' BETA COEFFICIENTS -- off-diagonal T matrix elements'
-            write(unit=RESTARTFILE,*)beta(0:iter)
+            write(unit=RESTARTFILE,fmt=*)beta(0:iter)
             if(orthog) then
                 write(unit=RESTARTFILE,fmt='(a)')' OMEGA(1) -- ORTHOGONALITY INFORMATION'
                 write(unit=RESTARTFILE,fmt=1002)omega(1,0:iter)
@@ -2455,13 +2455,13 @@ end program main
         read(unit=RESTARTFILE,fmt='(i5)')nload
         reloadall = i==nload
         read(unit=RESTARTFILE,fmt='(a75)')commentline
-        read(unit=RESTARTFILE,*)(alpha(i),i=1,nload)
+        read(unit=RESTARTFILE,fmt=*)(alpha(i),i=1,nload)
         searchterm=' BETA CO'
         do 
             read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
             if(currterm==searchterm) exit
         end do
-        read(unit=RESTARTFILE,*)(beta(i),i=0,nload)
+        read(unit=RESTARTFILE,fmt=*)(beta(i),i=0,nload)
         if(orthog) then
             searchterm=' OMEGA(1'
             do 

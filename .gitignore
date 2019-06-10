@@ -5,3 +5,4 @@ NadVibS.exe
 *.in
 temp*
 ReadOnly.f90
+avx/NadVibS.f90
