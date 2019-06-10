@@ -180,2488 +180,2484 @@ program main
 end program main
 
 !-------------- Top level subroutines: called by program block ---------------
-    !Reads the command line arguments.  Currently recognizes two:
-    !    -m $MEMORY : sets the memory avaiable to the program in MB
-    !    -o [dir]   : location of the scratch directories 
-    subroutine read_cmdline(ierr,memory,dir)
-        integer*8,intent(inout)			:: ierr
-        real*8, intent(inout)       :: memory
-        CHARACTER(len=100), intent(inout)     :: dir
-        CHARACTER(2),dimension(2)		:: args = (/'-m','-o'/)
-        CHARACTER(len=100)                    :: argbuf
-        integer*8				:: nargs,i,setmem,setout
-        outdir = ""
-        setmem = 0
-        setout = 0
-        nargs = iargc()
-        do i = 1,nargs
-            call getarg(i,argbuf)
-            if(setmem.eq.1.and.(trim(argbuf).ne.trim(args(2)))) then
-               read(argbuf,*)memory
-               setmem = 0
-            end if
-            if(setout.eq.1.and.(trim(argbuf).ne.trim(args(1)))) then
-               dir = trim(adjustl(argbuf))//'/'
-               setout = 0
-            end if
-            if(trim(argbuf).eq.trim(args(1))) setmem = 1
-            if(trim(argbuf).eq.trim(args(2))) setout = 1
-        end do
-    end subroutine read_cmdline
-    
-    subroutine read_basis()!Read the basic input from file basis.in
-        use progdata
-        use filedata, only: BASISFILE
-        implicit none
+!Reads the command line arguments.  Currently recognizes two:
+!    -m $MEMORY : sets the memory avaiable to the program in MB
+!    -o [dir]   : location of the scratch directories 
+subroutine read_cmdline(ierr,memory,dir)
+    integer*8,intent(inout)			:: ierr
+    real*8, intent(inout)       :: memory
+    CHARACTER(len=100), intent(inout)     :: dir
+    CHARACTER(2),dimension(2)		:: args = (/'-m','-o'/)
+    CHARACTER(len=100)                    :: argbuf
+    integer*8				:: nargs,i,setmem,setout
+    outdir = ""
+    setmem = 0
+    setout = 0
+    nargs = iargc()
+    do i = 1,nargs
+        call getarg(i,argbuf)
+        if(setmem.eq.1.and.(trim(argbuf).ne.trim(args(2)))) then
+           read(argbuf,*)memory
+           setmem = 0
+        end if
+        if(setout.eq.1.and.(trim(argbuf).ne.trim(args(1)))) then
+           dir = trim(adjustl(argbuf))//'/'
+           setout = 0
+        end if
+        if(trim(argbuf).eq.trim(args(1))) setmem = 1
+        if(trim(argbuf).eq.trim(args(2))) setout = 1
+    end do
+end subroutine read_cmdline
+
+subroutine read_basis()!Read the basic input from file basis.in
+    use progdata
+    use filedata, only: BASISFILE
+    implicit none
 #include 'mpif.h'
 #include 'global.fh'
-        integer*8                      :: i,j,istat
-        integer*8                      :: numut
-        if(myid.eq.0) call get_keywords()
-        call ga_sync()
-        call mpi_bcast(ordr,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(idroots,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(soroots,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(niter,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(iiter,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(chkorthog,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(nseg,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(nirreps,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(natoms,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(nmodes,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(nstates,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(dimen,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(ztoler,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(maxdisk,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(bjiconv,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(restartrun,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(neworigin,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(savevecs,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(orthog,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(orthogexact,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-        if(myid.ne.0) then
-            allocate(statew(nstates))
-            allocate(istate(nmodes))
-            allocate(nfunc(nmodes))
-            allocate(npirrep(nirreps))
-        end if
-        call mpi_bcast(statew,nstates,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(istate,nmodes,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(nfunc,nmodes,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(npirrep,nirreps,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call ga_sync()
-        call determine_epsilon()!Determine the machine precision for this architecture
-        nstblks = numut(nstates,two)
-        allocate(noterms(ordr))
-        do i = 1,ordr
-            noterms(i) = numut(nmodes,i)
+    integer*8                      :: i,j,istat
+    integer*8                      :: numut
+    if(myid.eq.0) call get_keywords()
+    call ga_sync()
+    call mpi_bcast(ordr,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(idroots,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(soroots,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(niter,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(iiter,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(chkorthog,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(nseg,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(nirreps,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(natoms,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(nmodes,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(nstates,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(dimen,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(ztoler,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(maxdisk,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(bjiconv,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(restartrun,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(neworigin,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(savevecs,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(orthog,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(orthogexact,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+    if(myid.ne.0) then
+        allocate(statew(nstates))
+        allocate(istate(nmodes))
+        allocate(nfunc(nmodes))
+        allocate(npirrep(nirreps))
+    end if
+    call mpi_bcast(statew,nstates,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(istate,nmodes,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(nfunc,nmodes,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(npirrep,nirreps,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call ga_sync()
+    call determine_epsilon()!Determine the machine precision for this architecture
+    nstblks = numut(nstates,two)
+    allocate(noterms(ordr))
+    do i = 1,ordr
+        noterms(i) = numut(nmodes,i)
+    end do
+    allocate(cpindx(nstblks,2))
+    do i = 1,nstates
+        do j = 1,i
+            cpindx(i*(i-1)/2+j,1)=i
+            cpindx(i*(i-1)/2+j,2)=j
         end do
-        allocate(cpindx(nstblks,2))
-        do i = 1,nstates
-            do j = 1,i
-                cpindx(i*(i-1)/2+j,1)=i
-                cpindx(i*(i-1)/2+j,2)=j
-            end do
-        end do
-    end subroutine read_basis
-    
-    subroutine read_constants()!Read in the potential term information from standard lanczos.in file
-        use progdata, only: myid,ordr,nfunc,nmodes,nstates,neworigin,nstblks,nztrms,concoef,aomega,bomega, &
-                            dvec,tmat,nzindx,nzblks,nzcoef,nztrms,noterms,ztoler,cpindx,AU2WAVE,zero,zerodp
-        use filedata, only: POTFILE,OUTFILE
-        implicit none
+    end do
+end subroutine read_basis
+
+subroutine read_constants()!Read in the potential term information from standard lanczos.in file
+    use progdata, only: myid,ordr,nfunc,nmodes,nstates,neworigin,nstblks,nztrms,concoef,aomega,bomega, &
+                        dvec,tmat,nzindx,nzblks,nzcoef,nztrms,noterms,ztoler,cpindx,AU2WAVE,zero,zerodp
+    use filedata, only: POTFILE,OUTFILE
+    implicit none
 #include 'mpif.h'
 #include 'global.fh'
-        logical:: newterm,termchk
-        integer*8:: i,j,k,l,m,n,p,cnt,loc,nblk,ioff
-        integer*8:: istat
-        real*8:: dval
-        integer*8,dimension(ordr):: otab,uniq
-        character*75:: commentline
-        real*8,dimension(:,:,:),allocatable:: POTterms
-        integer*8,dimension(:,:,:),allocatable:: nztemp1
-        real*8,dimension(:,:,:),allocatable:: nztemp2
-        ioff=0
-        do i = 1,ordr
-            if(noterms(i).gt.ioff)ioff=noterms(i)
-        end do
-        allocate(nztrms(ordr))
-        allocate(concoef(nstblks))
-        allocate(POTterms(ioff,ordr,nstblks))
-        allocate(nztemp1(ordr,ordr*ioff,2*ordr+nstblks+1))
-        allocate(nztemp2(ordr,ordr*ioff,nstblks))
-        call setintarray(nztrms,ordr,zero)
-        allocate(aomega(nmodes))
-        if(neworigin) then
-            allocate(bomega(nmodes))
-            allocate(dvec(nmodes))
-            allocate(tmat(nmodes**2))
-        end if
-        if(myid.eq.0) then!Only the root process will be able to see this file...
-            open(POTFILE,file='nadvibs.in',access='sequential',form='formatted')
-            read(POTFILE,fmt='(a75)') commentline
-            read(POTFILE,*)(aomega(i),i=1,nmodes)
-            do i = 1,nstblks
-                read(unit=POTFILE,fmt='(a75)') commentline
-                read(unit=POTFILE,fmt=*)concoef(i)
-                do j = 1,ordr
-                    read(unit=POTFILE,fmt='(a75)') commentline
-                    read(unit=POTFILE,fmt=*)(POTterms(k,j,i),k=1,noterms(j))
-                end do
-            end do
-            if(neworigin) then
-                read(unit=POTFILE,fmt='(a75)') commentline
-                read(unit=POTFILE,fmt=*)(bomega(i),i=1,nmodes)
-                read(unit=POTFILE,fmt='(a75)') commentline
-                read(unit=POTFILE,fmt=*)(dvec(i),i=1,nmodes)
-                read(unit=POTFILE,fmt='(a75)') commentline
-                read(unit=POTFILE,fmt=*)(tmat(i),i=1,nmodes**2)
-            end if
-            close(POTFILE)
-        end if
-        call ga_sync()
+    logical:: newterm,termchk
+    integer*8:: i,j,k,l,m,n,p,cnt,loc,nblk,ioff
+    integer*8:: istat
+    real*8:: dval
+    integer*8,dimension(ordr):: otab,uniq
+    character*75:: commentline
+    real*8,dimension(:,:,:),allocatable:: POTterms
+    integer*8,dimension(:,:,:),allocatable:: nztemp1
+    real*8,dimension(:,:,:),allocatable:: nztemp2
+    ioff=0
+    do i = 1,ordr
+        if(noterms(i).gt.ioff)ioff=noterms(i)
+    end do
+    allocate(nztrms(ordr))
+    allocate(concoef(nstblks))
+    allocate(POTterms(ioff,ordr,nstblks))
+    allocate(nztemp1(ordr,ordr*ioff,2*ordr+nstblks+1))
+    allocate(nztemp2(ordr,ordr*ioff,nstblks))
+    call setintarray(nztrms,ordr,zero)
+    allocate(aomega(nmodes))
+    if(neworigin) then
+        allocate(bomega(nmodes))
+        allocate(dvec(nmodes))
+        allocate(tmat(nmodes**2))
+    end if
+    if(myid.eq.0) then!Only the root process will be able to see this file...
+        open(POTFILE,file='nadvibs.in',access='sequential',form='formatted')
+        read(POTFILE,fmt='(a75)') commentline
+        read(POTFILE,*)(aomega(i),i=1,nmodes)
         do i = 1,nstblks
+            read(unit=POTFILE,fmt='(a75)') commentline
+            read(unit=POTFILE,fmt=*)concoef(i)
             do j = 1,ordr
-                call mpi_bcast(POTterms(1:noterms(ordr),j,i),noterms(ordr),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+                read(unit=POTFILE,fmt='(a75)') commentline
+                read(unit=POTFILE,fmt=*)(POTterms(k,j,i),k=1,noterms(j))
             end do
         end do
-        call mpi_bcast(concoef,nstblks,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-        call mpi_bcast(aomega,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
         if(neworigin) then
-            call mpi_bcast(bomega,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-            call mpi_bcast(dvec,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-            call mpi_bcast(tmat,nmodes**2,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+            read(unit=POTFILE,fmt='(a75)') commentline
+            read(unit=POTFILE,fmt=*)(bomega(i),i=1,nmodes)
+            read(unit=POTFILE,fmt='(a75)') commentline
+            read(unit=POTFILE,fmt=*)(dvec(i),i=1,nmodes)
+            read(unit=POTFILE,fmt='(a75)') commentline
+            read(unit=POTFILE,fmt=*)(tmat(i),i=1,nmodes**2)
         end if
-        do i = 1,nstblks
-            do j = 1,ordr
-                if(myid.eq.0)print *,'BLK=',i,' ORDR=',j
-                m = 0
-                call setintarray(otab,ordr,int(1))
-                otab(j) = 0
-                do k = 1,noterms(j)
-                    l = j
-                    do
-                        if(l.eq.1) exit
-                        if(otab(l).lt.otab(l-1)) exit
-                        otab(l) = 1
-                        l = l - 1
-                    end do
-                    otab(l) = otab(l) + 1
-                    if(myid.eq.0)print *,'otab=',otab
-                    m = m + 1
-                    call union(j,otab,cnt,uniq)
-                    if(abs(POTterms(m,j,i)).ge.ztoler)then
-                        newterm = .true.
-                        do n = 1,nztrms(cnt)
-                            termchk = .true. 
-                            do p = 1,cnt
-                                if(uniq(p).ne.nztemp1(cnt,n,2*p-1).or.count(otab(1:j).eq.uniq(p)).ne.nztemp1(cnt,n,2*p))termchk=.false.
-                            end do
-                            if(termchk)then
-                                newterm=.false.
-                                loc = n
-                                EXIT
-                            end if
-                        end do
-                        if(newterm)then
-                            nztrms(cnt) = nztrms(cnt) + 1
-                            do n = 1,cnt
-                                nztemp1(cnt,nztrms(cnt),2*n-1) = uniq(n)
-                                nztemp1(cnt,nztrms(cnt),2*n)   = count(otab(1:j).eq.uniq(n))
-                            end do
-                            nztemp1(cnt,nztrms(cnt),2*cnt+1) = 1
-                            nztemp1(cnt,nztrms(cnt),2*cnt+2) = i
-                            nztemp2(cnt,nztrms(cnt),1) = POTterms(m,j,i)
-                        else
-                            nblk = nztemp1(cnt,loc,2*cnt+1)+1
-                            nztemp1(cnt,loc,2*cnt+1) = nblk
-                            nztemp1(cnt,loc,2*cnt+1+nblk) = i
-                            nztemp2(cnt,loc,nblk) = POTterms(m,j,i)
-                        end if
-                    end if
-                end do
-            end do
+        close(POTFILE)
+    end if
+    call ga_sync()
+    do i = 1,nstblks
+        do j = 1,ordr
+            call mpi_bcast(POTterms(1:noterms(ordr),j,i),noterms(ordr),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
         end do
-        cnt = sum(nztrms)
-        allocate(nzindx(2*ordr,cnt))
-        allocate(nzblks(1+2*nstates*nstates,cnt))
-        allocate(nzcoef(nstates*nstates,cnt))
-        call setintmatrix(nzindx,2*ordr,cnt,zero)
-        call setintmatrix(nzblks,1+2*nstates*nstates,cnt,zero)
-        call setmatrix(nzcoef,nstates*nstates,cnt,zerodp)
-        ioff = 0
-        do i = 1,ordr
-            do j = 1,nztrms(i)
-                dval = 1.
-                do k = 1,i
-                    nzindx(2*k-1,ioff+j) = nztemp1(i,j,2*k-1)!Store the unique indices
-                    nzindx(2*k,ioff+j)   = nztemp1(i,j,2*k)!and how many times they occur
-                    dval = dval/Sqrt(aomega(nztemp1(i,j,2*k-1))**nztemp1(i,j,2*k))
-                end do
-                cnt=0!Store the number of blocks this term is non-zero
-                do k = 1,nztemp1(i,j,2*i+1)
-                    cnt = cnt + 1
-                    nzblks(2*cnt,ioff+j)   = cpindx(nztemp1(i,j,2*i+1+k),1)
-                    nzblks(2*cnt+1,ioff+j) = cpindx(nztemp1(i,j,2*i+1+k),2)
-                    nzcoef(cnt,ioff+j)     = nztemp2(i,j,k)*dval
-                    if(nzblks(2*cnt,ioff+j).ne.nzblks(2*cnt+1,ioff+j))then
-                        cnt = cnt + 1
-                        nzblks(2*cnt,ioff+j)   = cpindx(nztemp1(i,j,2*i+1+k),2)
-                        nzblks(2*cnt+1,ioff+j) = cpindx(nztemp1(i,j,2*i+1+k),1)
-                        nzcoef(cnt,ioff+j)     = nztemp2(i,j,k)*dval
-                    end if
-                    nzblks(1,ioff+j) = cnt
-                end do
-            end do
-            ioff = ioff + nztrms(i)
-        end do
-        print *,'NZTERMS: ',nztrms
-        deallocate(POTterms)
-        deallocate(nztemp1)
-        deallocate(nztemp2)
-    end subroutine read_constants
-    
-    subroutine print_basis(umem,rmem)!Print a summary of the basis set information from basis.in
-        use progdata, only: ordr,natoms,nstates,nmodes,niter,dimen,orthog,orthogexact,maxstor,nfunc,ztoler, &
-                            chkorthog,nproc,epsilon,maxdisk,statew,restartrun,iiter,soroots,bjiconv,nseg,   &
-                            nirreps,npirrep,aomega,bomega,istate,nstblks,AU2WAVE,nzindx,nztrms,nzblks,zero,neworigin
-        use filedata, only: outdir,OUTFILE
-        implicit none
-        real*8, intent(in)    :: umem,rmem
-        integer*8                         :: i,j,k,l,pordr,ioff
-        integer*8,dimension(ordr)         :: otab
-        integer*8,dimension(nstblks,ordr) :: ntot
-        real*8,dimension(nmodes) :: dpvec
-        open(unit=OUTFILE,file='output.dat',status='replace')
-        rewind(unit=OUTFILE)  
-        write(unit=OUTFILE,fmt='(a)')   'PNADVIBS.X'
-        write(unit=OUTFILE,fmt='(a)')   'VIBRONIC ENERGY LEVEL PROGRAM EMPLOYING A LANCZOS SOLVER' 
-        write(unit=OUTFILE,fmt='(a)')   '--------------------------------------------------------'
-        write(unit=OUTFILE,fmt='(a)')   'Michael Schuurman'
-        write(unit=OUTFILE,fmt='(a)')   ' '
-        write(unit=OUTFILE,fmt='(a)')	  ' '
-        write(unit=OUTFILE,fmt=1007)adjustl(outdir)
-        write(unit=OUTFILE,fmt='(a)')   ' '
-        write(unit=OUTFILE,fmt='(a)')   'Input parameters read from BASIS.IN:'
-        write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of atoms:                                   ',natoms
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of electronic states:                       ',nstates
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Order of the expansion:                            ',ordr
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of vibrational modes:                       ',nmodes
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of irreducible representations              ',nirreps
-        write(unit=OUTFILE,fmt=1003)npirrep
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Lanczos iterations:                      ',niter
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of processors used in execution:            ',nproc
-        write(unit=OUTFILE,fmt='(a48,es10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
-        if(restartrun)write(unit=OUTFILE,fmt='(a50,i5)')'  Restarting Lanczos Procedure on step:           ',iiter
-        write(unit=OUTFILE,fmt='(a53,l5)')'  Perform lanczos vector re-orthogonalization:       ',orthog
-        if(orthog) then
-            write(unit=OUTFILE,fmt='(a53,l5)')'    - exact dot products for vector orthog.:         ',orthogexact
-            if(.not.orthogexact) write(unit=OUTFILE,fmt='(a53,i5)')'    - compute exact orthog. every X iterations:      ',chkorthog
-            write(unit=OUTFILE,fmt='(a50,f8.1)')'    - max. amount of disk available for storage:  ',maxdisk
-            write(unit=OUTFILE,fmt='(a50,i8)')'    - max. number of lanczos vectors to store:    ',maxstor
-        end if
-        do i = 1,nstates
-            write(unit=OUTFILE,fmt=1000)i,statew(i)
-        end do
-        write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
-        write(unit=OUTFILE,fmt=1001)rmem
-        write(unit=OUTFILE,fmt=1002)umem
-        write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Segements per Lanczos Vector:             ',nseg
-        write(unit=OUTFILE,fmt='(a46,i12)')'  Dimensionality of a single State Vector:    ',dimen
-        write(unit=OUTFILE,fmt='(a46,i12)')'  Total Dimensionality of H matrix:           ',nstates*dimen
-        write(unit=OUTFILE,fmt='(a48,es10.4)')'  Machine precision for this architecture:      ',epsilon
-        ioff = 0
-        call setintmatrix(ntot,nstblks,ordr,zero)
-        do i = 1,ordr
-            otab(i) = i
-            do j = 1,nztrms(i)
-                pordr = 0
-                do k = 1,i
-                    pordr = pordr + nzindx(2*k,ioff+j)
-                end do
-                print *,'ordr=',i,' j=',j,' pordr=',pordr
-                k = 1
+    end do
+    call mpi_bcast(concoef,nstblks,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    call mpi_bcast(aomega,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    if(neworigin) then
+        call mpi_bcast(bomega,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+        call mpi_bcast(dvec,nmodes,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+        call mpi_bcast(tmat,nmodes**2,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+    end if
+    do i = 1,nstblks
+        do j = 1,ordr
+            if(myid.eq.0)print *,'BLK=',i,' ORDR=',j
+            m = 0
+            call setintarray(otab,ordr,int(1))
+            otab(j) = 0
+            do k = 1,noterms(j)
+                l = j
                 do
-                    if(k.gt.nzblks(1,ioff+j)) exit
-                    l = nzblks(2*k,ioff+j)*(nzblks(2*k,ioff+j)-1)/2+nzblks(2*k+1,ioff+j)
-                    ntot(l,pordr) = ntot(l,pordr) + 1
-                    if(nzblks(2*k,ioff+j).ne.nzblks(2*k+1,ioff+j))k = k + 1
-                    k = k + 1
+                    if(l.eq.1) exit
+                    if(otab(l).lt.otab(l-1)) exit
+                    otab(l) = 1
+                    l = l - 1
                 end do
-            end do
-            ioff = ioff + nztrms(i)
-        end do
-        write(unit=OUTFILE,fmt='(a)')''
-        write(unit=OUTFILE,fmt='(a)')'  Number of Potential Terms per Block -----------'
-        write(unit=OUTFILE,fmt='(a)')''
-        write(unit=OUTFILE,fmt=1006)otab(1:ordr)
-        do i = 1,nstblks
-            write(unit=OUTFILE,fmt=1005)i,ntot(i,1:ordr)
-        end do
-        write(unit=OUTFILE,fmt='(a)')     ''
-        write(unit=OUTFILE,fmt='(a)')     '  Basis set specification:'
-        write(unit=OUTFILE,fmt='(a)')     '    mode  # func.    omega'
-        do i=1,nmodes
-            write(unit=OUTFILE,fmt=1004)i,nfunc(i),aomega(i)*AU2WAVE
-        end do
-        write(unit=OUTFILE,fmt='(a)') ''
-        if(neworigin)then
-            do i = 1,nmodes
-                dpvec(i) = bomega(i)*AU2WAVE
-            end do
-        else
-            do i = 1,nmodes
-                dpvec(i) = aomega(i)*AU2WAVE
-            end do
-        end if
-        !Temporary -- only one mode may be excited in istate
-            j = 0
-            do i = 1,nmodes
-                if(istate(i).gt.0.and.j.eq.0)then
-                    j = 1
-                else
-                    istate(i) = 0
+                otab(l) = otab(l) + 1
+                if(myid.eq.0)print *,'otab=',otab
+                m = m + 1
+                call union(j,otab,cnt,uniq)
+                if(abs(POTterms(m,j,i)).ge.ztoler)then
+                    newterm = .true.
+                    do n = 1,nztrms(cnt)
+                        termchk = .true. 
+                        do p = 1,cnt
+                            if(uniq(p).ne.nztemp1(cnt,n,2*p-1).or.count(otab(1:j).eq.uniq(p)).ne.nztemp1(cnt,n,2*p))termchk=.false.
+                        end do
+                        if(termchk)then
+                            newterm=.false.
+                            loc = n
+                            EXIT
+                        end if
+                    end do
+                    if(newterm)then
+                        nztrms(cnt) = nztrms(cnt) + 1
+                        do n = 1,cnt
+                            nztemp1(cnt,nztrms(cnt),2*n-1) = uniq(n)
+                            nztemp1(cnt,nztrms(cnt),2*n)   = count(otab(1:j).eq.uniq(n))
+                        end do
+                        nztemp1(cnt,nztrms(cnt),2*cnt+1) = 1
+                        nztemp1(cnt,nztrms(cnt),2*cnt+2) = i
+                        nztemp2(cnt,nztrms(cnt),1) = POTterms(m,j,i)
+                    else
+                        nblk = nztemp1(cnt,loc,2*cnt+1)+1
+                        nztemp1(cnt,loc,2*cnt+1) = nblk
+                        nztemp1(cnt,loc,2*cnt+1+nblk) = i
+                        nztemp2(cnt,loc,nblk) = POTterms(m,j,i)
+                    end if
                 end if
             end do
-        write(unit=OUTFILE,fmt='(a)')     ''
-        write(unit=OUTFILE,fmt='(a)')     '  Initial state specification:'
-        write(unit=OUTFILE,fmt='(a)')     '    mode  # quanta   omega'
-        do i=1,nmodes
-            write(unit=OUTFILE,fmt=1004)i,istate(i),dpvec(i)
         end do
-        write(unit=OUTFILE,fmt='(a)') ''
-        1000 format('  Initial weight of reference state ',i2,':              ',f5.2)
-        1001 format('  Total Memory Required (GA+NADVIBS) (MB):        ',f8.1)
-        1002 format('  Memory Available (MB):                          ',f8.1)
-        1003 format('  Number of modes per irrep:                         ',8(i3))
-        1004 format(4x,i3,i7,f12.3)
-        1005 format('  Block ',i3,':',8('  ',i4,'   '))
-        1006 format('  ORDER:    ',8('    ',i2,'   '))
-        1007 format('  Scratch files written to (blank if current directory): ',a100)
-    end subroutine print_basis
-    
-    subroutine initialize_elements()
-        use progdata, only: myid,nproc,nmodes,nstates,dimen,nfunc,q1,q2,q3,scr2,alpha,beta,totstart,totend,   &
-                            aomega,iiter,niter,shft,orthog,epsilon,omega,loindex,roindex,zerodp,zero,one,two, &
-                            firststep,restartrun,maxdisk,nseg,vbounds,savevecs,ordr,cpindx,nstblks,nztrms,    &
-                            nzindx,stype,nsteps,nelems,nmax,homatel,iordr,nzblks,basdif,lo,hi,concoef,nmatel, &
-                            ndiag,dmap,ndblks,dblks
-        use filedata, only: outdir,OUTFILE,SCRFILE,QRESTART,ARCHIVE
-        implicit none
+    end do
+    cnt = sum(nztrms)
+    allocate(nzindx(2*ordr,cnt))
+    allocate(nzblks(1+2*nstates*nstates,cnt))
+    allocate(nzcoef(nstates*nstates,cnt))
+    call setintmatrix(nzindx,2*ordr,cnt,zero)
+    call setintmatrix(nzblks,1+2*nstates*nstates,cnt,zero)
+    call setmatrix(nzcoef,nstates*nstates,cnt,zerodp)
+    ioff = 0
+    do i = 1,ordr
+        do j = 1,nztrms(i)
+            dval = 1.
+            do k = 1,i
+                nzindx(2*k-1,ioff+j) = nztemp1(i,j,2*k-1)!Store the unique indices
+                nzindx(2*k,ioff+j)   = nztemp1(i,j,2*k)!and how many times they occur
+                dval = dval/Sqrt(aomega(nztemp1(i,j,2*k-1))**nztemp1(i,j,2*k))
+            end do
+            cnt=0!Store the number of blocks this term is non-zero
+            do k = 1,nztemp1(i,j,2*i+1)
+                cnt = cnt + 1
+                nzblks(2*cnt,ioff+j)   = cpindx(nztemp1(i,j,2*i+1+k),1)
+                nzblks(2*cnt+1,ioff+j) = cpindx(nztemp1(i,j,2*i+1+k),2)
+                nzcoef(cnt,ioff+j)     = nztemp2(i,j,k)*dval
+                if(nzblks(2*cnt,ioff+j).ne.nzblks(2*cnt+1,ioff+j))then
+                    cnt = cnt + 1
+                    nzblks(2*cnt,ioff+j)   = cpindx(nztemp1(i,j,2*i+1+k),2)
+                    nzblks(2*cnt+1,ioff+j) = cpindx(nztemp1(i,j,2*i+1+k),1)
+                    nzcoef(cnt,ioff+j)     = nztemp2(i,j,k)*dval
+                end if
+                nzblks(1,ioff+j) = cnt
+            end do
+        end do
+        ioff = ioff + nztrms(i)
+    end do
+    print *,'NZTERMS: ',nztrms
+    deallocate(POTterms)
+    deallocate(nztemp1)
+    deallocate(nztemp2)
+end subroutine read_constants
+
+subroutine print_basis(umem,rmem)!Print a summary of the basis set information from basis.in
+    use progdata, only: ordr,natoms,nstates,nmodes,niter,dimen,orthog,orthogexact,maxstor,nfunc,ztoler, &
+                        chkorthog,nproc,epsilon,maxdisk,statew,restartrun,iiter,soroots,bjiconv,nseg,   &
+                        nirreps,npirrep,aomega,bomega,istate,nstblks,AU2WAVE,nzindx,nztrms,nzblks,zero,neworigin
+    use filedata, only: outdir,OUTFILE
+    implicit none
+    real*8, intent(in)    :: umem,rmem
+    integer*8                         :: i,j,k,l,pordr,ioff
+    integer*8,dimension(ordr)         :: otab
+    integer*8,dimension(nstblks,ordr) :: ntot
+    real*8,dimension(nmodes) :: dpvec
+    open(unit=OUTFILE,file='output.dat',status='replace')
+    rewind(unit=OUTFILE)  
+    write(unit=OUTFILE,fmt='(a)')   'PNADVIBS.X'
+    write(unit=OUTFILE,fmt='(a)')   'VIBRONIC ENERGY LEVEL PROGRAM EMPLOYING A LANCZOS SOLVER' 
+    write(unit=OUTFILE,fmt='(a)')   '--------------------------------------------------------'
+    write(unit=OUTFILE,fmt='(a)')   'Michael Schuurman'
+    write(unit=OUTFILE,fmt='(a)')   ' '
+    write(unit=OUTFILE,fmt='(a)')	  ' '
+    write(unit=OUTFILE,fmt=1007)adjustl(outdir)
+    write(unit=OUTFILE,fmt='(a)')   ' '
+    write(unit=OUTFILE,fmt='(a)')   'Input parameters read from BASIS.IN:'
+    write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of atoms:                                   ',natoms
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of electronic states:                       ',nstates
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Order of the expansion:                            ',ordr
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of vibrational modes:                       ',nmodes
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of irreducible representations              ',nirreps
+    write(unit=OUTFILE,fmt=1003)npirrep
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Lanczos iterations:                      ',niter
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of processors used in execution:            ',nproc
+    write(unit=OUTFILE,fmt='(a48,es10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
+    if(restartrun)write(unit=OUTFILE,fmt='(a50,i5)')'  Restarting Lanczos Procedure on step:           ',iiter
+    write(unit=OUTFILE,fmt='(a53,l5)')'  Perform lanczos vector re-orthogonalization:       ',orthog
+    if(orthog) then
+        write(unit=OUTFILE,fmt='(a53,l5)')'    - exact dot products for vector orthog.:         ',orthogexact
+        if(.not.orthogexact) write(unit=OUTFILE,fmt='(a53,i5)')'    - compute exact orthog. every X iterations:      ',chkorthog
+        write(unit=OUTFILE,fmt='(a50,f8.1)')'    - max. amount of disk available for storage:  ',maxdisk
+        write(unit=OUTFILE,fmt='(a50,i8)')'    - max. number of lanczos vectors to store:    ',maxstor
+    end if
+    do i = 1,nstates
+        write(unit=OUTFILE,fmt=1000)i,statew(i)
+    end do
+    write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
+    write(unit=OUTFILE,fmt=1001)rmem
+    write(unit=OUTFILE,fmt=1002)umem
+    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Segements per Lanczos Vector:             ',nseg
+    write(unit=OUTFILE,fmt='(a46,i12)')'  Dimensionality of a single State Vector:    ',dimen
+    write(unit=OUTFILE,fmt='(a46,i12)')'  Total Dimensionality of H matrix:           ',nstates*dimen
+    write(unit=OUTFILE,fmt='(a48,es10.4)')'  Machine precision for this architecture:      ',epsilon
+    ioff = 0
+    call setintmatrix(ntot,nstblks,ordr,zero)
+    do i = 1,ordr
+        otab(i) = i
+        do j = 1,nztrms(i)
+            pordr = 0
+            do k = 1,i
+                pordr = pordr + nzindx(2*k,ioff+j)
+            end do
+            print *,'ordr=',i,' j=',j,' pordr=',pordr
+            k = 1
+            do
+                if(k.gt.nzblks(1,ioff+j)) exit
+                l = nzblks(2*k,ioff+j)*(nzblks(2*k,ioff+j)-1)/2+nzblks(2*k+1,ioff+j)
+                ntot(l,pordr) = ntot(l,pordr) + 1
+                if(nzblks(2*k,ioff+j).ne.nzblks(2*k+1,ioff+j))k = k + 1
+                k = k + 1
+            end do
+        end do
+        ioff = ioff + nztrms(i)
+    end do
+    write(unit=OUTFILE,fmt='(a)')''
+    write(unit=OUTFILE,fmt='(a)')'  Number of Potential Terms per Block -----------'
+    write(unit=OUTFILE,fmt='(a)')''
+    write(unit=OUTFILE,fmt=1006)otab(1:ordr)
+    do i = 1,nstblks
+        write(unit=OUTFILE,fmt=1005)i,ntot(i,1:ordr)
+    end do
+    write(unit=OUTFILE,fmt='(a)')     ''
+    write(unit=OUTFILE,fmt='(a)')     '  Basis set specification:'
+    write(unit=OUTFILE,fmt='(a)')     '    mode  # func.    omega'
+    do i=1,nmodes
+        write(unit=OUTFILE,fmt=1004)i,nfunc(i),aomega(i)*AU2WAVE
+    end do
+    write(unit=OUTFILE,fmt='(a)') ''
+    if(neworigin)then
+        do i = 1,nmodes
+            dpvec(i) = bomega(i)*AU2WAVE
+        end do
+    else
+        do i = 1,nmodes
+            dpvec(i) = aomega(i)*AU2WAVE
+        end do
+    end if
+    !Temporary -- only one mode may be excited in istate
+        j = 0
+        do i = 1,nmodes
+            if(istate(i).gt.0.and.j.eq.0)then
+                j = 1
+            else
+                istate(i) = 0
+            end if
+        end do
+    write(unit=OUTFILE,fmt='(a)')     ''
+    write(unit=OUTFILE,fmt='(a)')     '  Initial state specification:'
+    write(unit=OUTFILE,fmt='(a)')     '    mode  # quanta   omega'
+    do i=1,nmodes
+        write(unit=OUTFILE,fmt=1004)i,istate(i),dpvec(i)
+    end do
+    write(unit=OUTFILE,fmt='(a)') ''
+    1000 format('  Initial weight of reference state ',i2,':              ',f5.2)
+    1001 format('  Total Memory Required (GA+NADVIBS) (MB):        ',f8.1)
+    1002 format('  Memory Available (MB):                          ',f8.1)
+    1003 format('  Number of modes per irrep:                         ',8(i3))
+    1004 format(4x,i3,i7,f12.3)
+    1005 format('  Block ',i3,':',8('  ',i4,'   '))
+    1006 format('  ORDER:    ',8('    ',i2,'   '))
+    1007 format('  Scratch files written to (blank if current directory): ',a100)
+end subroutine print_basis
+
+subroutine initialize_elements()
+    use progdata, only: myid,nproc,nmodes,nstates,dimen,nfunc,q1,q2,q3,scr2,alpha,beta,totstart,totend,   &
+                        aomega,iiter,niter,shft,orthog,epsilon,omega,loindex,roindex,zerodp,zero,one,two, &
+                        firststep,restartrun,maxdisk,nseg,vbounds,savevecs,ordr,cpindx,nstblks,nztrms,    &
+                        nzindx,stype,nsteps,nelems,nmax,homatel,iordr,nzblks,basdif,lo,hi,concoef,nmatel, &
+                        ndiag,dmap,ndblks,dblks
+    use filedata, only: outdir,OUTFILE,SCRFILE,QRESTART,ARCHIVE
+    implicit none
 #include 'mpif.h'
 #include 'global.fh'
 #include 'mafdecls.fh'
-        integer*8		             :: i,j,k,l,m,n,ioff1,ioff2
-        integer*8                            :: nload,seglen,stack,heap,global,nall
-        integer*8                            :: istat,tcount,tmx,trm1,trm2,rlen
-        integer*8,dimension(2)               :: qlo,qhi
-        integer*8,dimension(nstblks,ordr)    :: ntcom,ntdet,ntsum
-        integer*8,dimension(nstates,nstates) :: dchk
-        integer*8,dimension(:),allocatable   :: ntot
-        real*8                   :: mb2b,gauss_random,hoelem
-        logical:: vecload,status,isdiag
-        character*4:: procindex
-        !Initialize and allocate local memory arrays
-            call ga_sync()
-            call system_clock(totstart,tcount,tmx)
-            allocate(vbounds(nproc*nseg,2))
-            allocate(shft(nmodes))
-            allocate(alpha(niter))
-            allocate(beta(0:niter)) 
-            allocate(omega(2,0:niter))
-            allocate(loindex(Ceiling(1.*niter/100.)))
-            allocate(roindex(Ceiling(1.*niter/100.)))
-            call setintmatrix(vbounds,nproc*nseg,2,zero)
-            call setintmatrix(ntcom,nstblks,ordr,zero)
-            call setintmatrix(ntdet,nstblks,ordr,zero)
-            call setintmatrix(ntsum,nstblks,ordr,zero)
-            call setintarray(shft,nmodes,one)
-            nmax = 1
-            do i = 1,nmodes
-                if(nfunc(i).gt.nmax)nmax = nfunc(i)
-                do j = i+1,nmodes
-                    shft(i) = shft(i)*nfunc(j)
-                end do
-            end do
-            firststep = .true.
-        !Initialize Global Arrays
-            mb2b = 1024.*1024.
-            stack  = Ceiling(mb2b)
-            heap   = Ceiling(mb2b)
-            global = Ceiling(3.*dimen*nstates/nproc)+100
-            call ga_sync()
-            if(ga_uses_ma()) then
-                status = ma_init(MT_F_DBL,stack,heap+global)
-                if(.not.status)print *,'MA_INIT ERROR.......'
-            else
-                call ga_set_memory_limit(ma_sizeof(MT_F_DBL,global,MT_F_BYTE))
-            end if
-            status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q1",zero,nstates,q1)
-            status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q2",zero,nstates,q2)
-            status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q3",zero,nstates,q3)
-            if(myid.eq.0)write(unit=OUTFILE,fmt=1000)
-            do i = 1,nproc
-                if(myid.eq.0)write(unit=OUTFILE,fmt=1001)i
-                call NGA_DISTRIBUTION(q1,i-1,qlo,qhi)
-                if(myid.eq.0)write(unit=OUTFILE,fmt=1002)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
-                call NGA_DISTRIBUTION(q2,i-1,qlo,qhi)
-                if(myid.eq.0)write(unit=OUTFILE,fmt=1003)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
-                call NGA_DISTRIBUTION(q3,i-1,qlo,qhi)
-                if(myid.eq.0)write(unit=OUTFILE,fmt=1004)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
-                seglen = nint(1.*(qhi(1) - qlo(1) + 1.)/nseg)
-                do j = 1,nseg
-                    vbounds((i-1)*nseg+j,1) = qlo(1) + (j-1)*seglen 
-                    vbounds((i-1)*nseg+j,2) = qlo(1) + j*seglen - 1
-                end do
-                vbounds(i*nseg,2) = qhi(1)
-            end do
-            if(myid.eq.0) then
-                write(unit=OUTFILE,fmt=1005)
-                do i = 1,nproc
-                    write(unit=OUTFILE,fmt=1001)i
-                    do j = 1,nseg
-                        write(unit=OUTFILE,fmt=1006)j,vbounds((i-1)*nseg+j,1),vbounds((i-1)*nseg+j,2),  &
-                                                      vbounds((i-1)*nseg+j,2)-vbounds((i-1)*nseg+j,1)+1
-                    end do
-                end do
-                write(unit=OUTFILE,fmt=1007)
-            end if
-            lo = (/ vbounds(myid*nseg+1,1), one /)
-            hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
-        !Setup the Hamiltonian
-            !Allocate the buffer that can hold the local portion of a global array vector
-                rlen = hi(1) - lo(1) + 1
-                allocate(scr2(rlen,nstates))
-                call ga_sync()
-                call compute_allIndex()
-            !Count the number of terms -- make sure predicted number agrees with the observed number of terms
-                ioff1 = 0
-                ioff2 = 0
-                do i = 1,ordr
-                    do j = 1,nztrms(i)
-                        trm1 = dimen
-                        do l = 1,i
-                           trm1 = trm1/nfunc(nzindx(2*l-1,ioff1+j))
-                        end do
-                        do k = 1,nsteps(ioff1+j) 
-                            trm2 = 1
-                            do l = 1,i
-                                trm2 = trm2*(nfunc(nzindx(2*l-1,ioff1+j))-basdif(l,ioff2+k))
-                            end do
-                            l = 1
-                            do
-                                if(l.gt.nzblks(1,ioff1+j)) exit
-                                m = nzblks(2*l,ioff1+j)*(nzblks(2*l,ioff1+j)-1)/2+nzblks(2*l+1,ioff1+j)
-                                ntcom(m,i) = ntcom(m,i) + trm1*trm2
-                                do n = 1,nproc*nseg
-                                 ntdet(m,i) = ntdet(m,i) + nelems(ioff2+k,n)
-                                end do
-                                if(nzblks(2*l,ioff1+j).ne.nzblks(2*l+1,ioff1+j))l = l + 1
-                                l = l + 1
-                            end do
-                        end do
-                        isdiag = .true.
-                        do n = 1,i 
-                            if(mod(nzindx(2*n,ioff1+j),2).ne.0)isdiag=.false.
-                        end do
-                        if(isdiag)then
-                            l = 1
-                            do 
-                                if(l.gt.nzblks(1,ioff1+j)) exit
-                                m = nzblks(2*l,ioff1+j)*(nzblks(2*l,ioff1+j)-1)/2+nzblks(2*l+1,ioff1+j)
-                                ntdet(m,i) = ntdet(m,i) + hi(1) - lo(1) + 1
-                                if(nzblks(2*l,ioff1+j).ne.nzblks(2*l+1,ioff1+j)) l = l + 1
-                                l = l + 1
-                            end do
-                        end if
-                        ioff2 = ioff2 + nsteps(ioff1+j)
-                    end do
-                    ioff1 = ioff1 + nztrms(i)
-                end do
-                call ga_sync()
-                do i = 1,ordr
-                    call MPI_ALLREDUCE(ntdet(1:nstblks,i),ntsum(1:nstblks,i),nstblks,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,istat)
-                end do
-                if(myid.eq.0)then!Print out the results of the term counting
-                    write(OUTFILE,1008)
-                    trm1 = 0
-                    do i = 1,nstblks
-                        do j = 1,ordr
-                            trm1 = trm1 + ntsum(i,j)
-                            write(OUTFILE,1009)j,i,ntsum(i,j)
-                            if(ntsum(i,j).ne.ntcom(i,j)) write(OUTFILE,1010)j,i,ntcom(i,j),ntsum(i,j)
-                        end do
-                        write(OUTFILE,1011)
-                    end do
-                    write(OUTFILE,1007)
-                    write(OUTFILE,1012)trm1
-                end if
-                call ga_sync()
-                nmatel = 0
-                do i = 1,ordr
-                    j = mod(i,2)
-                    do
-                        if(j.gt.ordr)EXIT
-                        if(nmax-j.gt.0)nmatel = nmatel + nmax-j
-                        j = j + 2
-                    end do
-                end do
-            !Construct array holding requisite h.o. matrix elements
-                allocate(iordr(int(ordr/2.)+1,ordr))
-                allocate(homatel(nmatel))
-                ioff1 = 0
-                do i = 1,ordr
-                    j = mod(i,2)
-                    k = 1
-                    do 
-                        if(j.gt.ordr) exit
-                        iordr(k,i) = ioff1
-                        do l = 1,nmax-j
-                            ioff1 = ioff1 + 1
-                            homatel(ioff1) = hoelem(i,l,l+j)
-                        end do
-                        k = k + 1
-                        j = j + 2
-                    end do
-                end do
-            call setintmatrix(dchk,nstates,nstates,zero)!Construct list of state blocks involving diagonal terms
-            do i = 1,nstblks!Constant terms
-                if(abs(concoef(i)).gt.1e-16)then
-                    dchk(cpindx(i,1),cpindx(i,2)) = 1
-                    dchk(cpindx(i,2),cpindx(i,1)) = 1
-                end if
-            end do
-            !Potential terms
-                do i = 1,ndiag
-                    do j = 1,nzblks(1,dmap(i))
-                        k = nzblks(2*j,dmap(i))
-                        l = nzblks(2*j+1,dmap(i))
-                        dchk(k,l) = 1
-                    end do
-                end do
-                ndblks = 0
-                allocate(dblks(2*nstates*nstates))
-            do i = 1,nstates!Store the blocks that have non-zero diagonal terms
-                do j = 1,i-1
-                    if(dchk(i,j).ne.0)then
-                        ndblks = ndblks + 1
-                        dblks(2*ndblks-1) = i
-                        dblks(2*ndblks)   = j
-                    end if
-                end do
-            end do
-        !Set restart dependent parameters
-            write(procindex,'(i4)')myid
-            procindex = adjustl(procindex)
-            if(restartrun) then!If restarting from previous computation
-                if(myid.eq.0)call load_restartinfo(vecload)
-                nload = iiter - 1
-                call ga_sync()
-                call mpi_bcast(vecload,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
-                call mpi_bcast(alpha,nload,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-                call mpi_bcast(beta(0:nload),nload+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-                if(orthog) then
-                    do i = 1,2
-                        call mpi_bcast(omega(i,0:nload),nload+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
-                    end do
-                end if
-                if(savevecs) then
-                    open(unit=ARCHIVE,file=trim(adjustl(outdir))//'nadvibs.34.'//trim(procindex),access='direct', &
-                         status='old',form='unformatted',recl=8*rlen)
-                    rewind(ARCHIVE)
-                end if
-                if(vecload) then
-                    open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),access='direct', &
-                         status='old',form='unformatted',recl=8*rlen)
-                    rewind(QRESTART)
-                    call read_ga(q1,QRESTART,1)
-                    call read_ga(q2,QRESTART,2)
-                    call read_ga(q3,QRESTART,3)
-                    close(QRESTART,status='delete')
-                else
-                    call read_ga(q1,ARCHIVE,nload-2)
-                    call read_ga(q2,ARCHIVE,nload-1)
-                    call read_ga(q3,ARCHIVE,nload)
-                    call GA_SCALE(q3,beta(nload))
-                end if
-                call ga_sync()
-            else
-                omega(1,0) = 0.
-                omega(1,1) = 1.
-                omega(2,0) = 0.
-                omega(2,1) = gauss_random(zerodp,dble(0.6))*epsilon*nstates*dimen
-                omega(2,2) = 1.
-                if(savevecs)then
-                    open(ARCHIVE,file=trim(adjustl(outdir))//'nadvibs.34.'//trim(procindex),access='direct', &
-                         form='unformatted',status='replace',recl=8*rlen)
-                    rewind(ARCHIVE)
-                end if
-                call GA_ZERO(q2)
-            end if
-        call system_clock(totend,tcount,tmx)
-        if(myid.eq.0) then
-            open(SCRFILE,file='scratch.dat',status='replace')
-            write(OUTFILE,'(a)') ' '
-            write(OUTFILE,'(a)') '  Initialization complete.'
-            write(OUTFILE,1013)1.*(totend-totstart)/tcount
-        end if
-        !Generate starting vector, if not restarting
-            if(.not.restartrun) then
-                call ga_sync()
-                call generate_initialvec()
-                beta(0) = Sqrt(GA_DDOT(q3,q3))
-            end if
-            if(myid.eq.0) write(OUTFILE,1014)
-            call ga_sync()
-            call system_clock(totstart,tcount,tmx)
-        1020 format('x=',i3,' nelems(1,x)=',i6,' nelems(2,x)=',i6)
-        1000 format(/,3x,'Distribution of Lanczos vectors -------------------')
-        1001 format(/,3x,'PROCESS ',i3)
-        1002 format(3x,'Q1: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
-        1003 format(3x,'Q2: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
-        1004 format(3x,'Q3: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
-        1005 format(/,3x,'Segmentation Scheme -------------------------------')
-        1006 format(3x,'Seg ',i3,': ',i9,' -> ',i9,' LENGTH: ',i9)
-        1007 format(/,3x,'---------------------------------------------------')
-        1008 format(' ------- TERM COUNTING FOR VIBRONIC HAMILTONIAN --------')
-        1009 format('  TOT. NUM. ',i3,'-INDEX TERMS IN BLK ',i3,': ',i14)
-        1010 format('  !!!!!!!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!!',/, &
-                      '  DISAGREEMENT IN # OF ',i3,'-INDEX TERMS IN BLK ',i3,': predict=',i11,' != actual=',i11,/)
-        1011 format('')
-        1012 format('  TOTAL NUMBER OF TERMS IN ALL BLOCKS:    ',i12)
-        1013 format('  Time Required: ',f14.3,' secs.')
-        1014 format(/,'  >>>>>>>> Running Lanczos Iterations <<<<<<<<< '/)
-    end subroutine initialize_elements
-    
-    !The Lanczos alogrithm employed here has the following form:
-    !    r[1] != 0, q[0] = 0, beta[1] = ||r[1]||       -- intialize_elements
-    !    do j = 1, niter                               -- Main program loop
-    !        q2 = qnew[j]/beta[j]                      -- update_lanczos
-    !        u[j] = q2*A*q2 - beta[j]*q1               -- Hv and lanczos_step
-    !        alpha[j] = u[j] * q[j]                    -- lanczos_step
-    !        r[j+1] = u[j] - alpha[j]q[j]              -- lanczos_step
-    !        beta[j+1] = ||r[j+1]||                    -- lanczos_step
-    !        if(orthog)orthogonalize lanczos vectors   -- orthog_vectors
-    !    end do                                        -- Main program loop  
-    subroutine update_lanczos(iter)
-        use progdata, only: dimen,beta,nstates,q1,q2,q3,myid,nproc,iterstart,iterend,one,savevecs
-        use filedata, only: OUTFILE,ARCHIVE
-        implicit none
-#include 'global.fh'
-#include 'mafdecls.fh'
-        integer*8,intent(in)	:: iter
-        integer*8               :: tcount,tmx,istat,ireq
-        call system_clock(iterstart,tcount,tmx)
-        call GA_COPY(q2,q1)
-        call GA_SCALE(q3,1./beta(iter-1))
-        call GA_COPY(q3,q2)
+    integer*8		             :: i,j,k,l,m,n,ioff1,ioff2
+    integer*8                            :: nload,seglen,stack,heap,global,nall
+    integer*8                            :: istat,tcount,tmx,trm1,trm2,rlen
+    integer*8,dimension(2)               :: qlo,qhi
+    integer*8,dimension(nstblks,ordr)    :: ntcom,ntdet,ntsum
+    integer*8,dimension(nstates,nstates) :: dchk
+    integer*8,dimension(:),allocatable   :: ntot
+    real*8                   :: mb2b,gauss_random,hoelem
+    logical:: vecload,status,isdiag
+    character*4:: procindex
+    !Initialize and allocate local memory arrays
         call ga_sync()
-        if(savevecs) then
-            call write_ga(q2,ARCHIVE,iter)
-            call ga_sync()
+        call system_clock(totstart,tcount,tmx)
+        allocate(vbounds(nproc*nseg,2))
+        allocate(shft(nmodes))
+        allocate(alpha(niter))
+        allocate(beta(0:niter)) 
+        allocate(omega(2,0:niter))
+        allocate(loindex(Ceiling(1.*niter/100.)))
+        allocate(roindex(Ceiling(1.*niter/100.)))
+        call setintmatrix(vbounds,nproc*nseg,2,zero)
+        call setintmatrix(ntcom,nstblks,ordr,zero)
+        call setintmatrix(ntdet,nstblks,ordr,zero)
+        call setintmatrix(ntsum,nstblks,ordr,zero)
+        call setintarray(shft,nmodes,one)
+        nmax = 1
+        do i = 1,nmodes
+            if(nfunc(i).gt.nmax)nmax = nfunc(i)
+            do j = i+1,nmodes
+                shft(i) = shft(i)*nfunc(j)
+            end do
+        end do
+        firststep = .true.
+    !Initialize Global Arrays
+        mb2b = 1024.*1024.
+        stack  = Ceiling(mb2b)
+        heap   = Ceiling(mb2b)
+        global = Ceiling(3.*dimen*nstates/nproc)+100
+        call ga_sync()
+        if(ga_uses_ma()) then
+            status = ma_init(MT_F_DBL,stack,heap+global)
+            if(.not.status)print *,'MA_INIT ERROR.......'
+        else
+            call ga_set_memory_limit(ma_sizeof(MT_F_DBL,global,MT_F_BYTE))
         end if
-        call system_clock(iterend,tcount,tmx)
+        status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q1",zero,nstates,q1)
+        status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q2",zero,nstates,q2)
+        status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q3",zero,nstates,q3)
+        if(myid.eq.0)write(unit=OUTFILE,fmt=1000)
+        do i = 1,nproc
+            if(myid.eq.0)write(unit=OUTFILE,fmt=1001)i
+            call NGA_DISTRIBUTION(q1,i-1,qlo,qhi)
+            if(myid.eq.0)write(unit=OUTFILE,fmt=1002)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            call NGA_DISTRIBUTION(q2,i-1,qlo,qhi)
+            if(myid.eq.0)write(unit=OUTFILE,fmt=1003)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            call NGA_DISTRIBUTION(q3,i-1,qlo,qhi)
+            if(myid.eq.0)write(unit=OUTFILE,fmt=1004)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            seglen = nint(1.*(qhi(1) - qlo(1) + 1.)/nseg)
+            do j = 1,nseg
+                vbounds((i-1)*nseg+j,1) = qlo(1) + (j-1)*seglen 
+                vbounds((i-1)*nseg+j,2) = qlo(1) + j*seglen - 1
+            end do
+            vbounds(i*nseg,2) = qhi(1)
+        end do
         if(myid.eq.0) then
-            call write_scrfile(iter)
-            write(unit=OUTFILE,fmt=1000)iter
-            write(unit=OUTFILE,fmt=1001)1.*(iterend-iterstart)/tcount 
-        end if
-        1000 format(3x,'ITERATION: ',i5)
-        1001 format(3x,' - Update Lanczos vector:                ',f14.3,' secs.')
-    end subroutine update_lanczos
-    
-    subroutine Hv(iter)
-        use progdata, only: myid,ordr,nproc,niter,dimen,nstates,nstblks,cpindx,nmodes,nfunc,zero,one,two,zerodp,nalltrms,  &
-                            q2,q3,vbounds,scr1,scr2,nseg,concoef,shft,aomega,iterend,iordr,lo,hi,nmatel,                   &
-                            stype,nztrms,basind,basdif,bstart,rcshft,nelems,nsteps,bmax,nzindx,nzblks,nzcoef,homatel,      &
-                            ndiag,dordr,dmap,ndblks,dblks
-        use filedata, only: OUTFILE
-        implicit none
-#include 'global.fh'
-        integer*8,intent(in)                                       :: iter
-        integer*8                                                  :: i,j,k,l,m,n,ioff1,ioff2
-        integer*8                                                  :: ibat,nbat,rindx,cindx
-        integer*8                                                  :: tend,tcount,tmx
-        integer*8,dimension(1)                                     :: ld,qld
-        integer*8,dimension(2)                                     :: qlo,qhi
-        integer*8,dimension(nmodes)                                :: barray
-        integer*8,dimension(ordr)                                  :: inds,icnt,bval
-        integer*8,dimension(ordr+1)                                :: bcnt
-        real*8                                         :: dkin,d1,dscale
-        real*8,dimension(ordr)                         :: matel
-        real*8,dimension(nstates,nstates)              :: dvals
-        dscale = 1.
-        qld(1) = 0
-        ld(1) = hi(1) - lo(1) + 1
-        nbat = nseg*nproc
-        ibat = nseg*myid
-        call setmatrix(scr2,ld(1),nstates,zerodp)
-        do i = 1,nbat!Loop over the number of processors
-            ibat = ibat + 1
-            if(ibat.gt.nbat) ibat = ibat - nbat
-            if(nalltrms(ibat).gt.0) then
-                qlo = (/ vbounds(ibat,1),1 /)
-                qhi = (/ vbounds(ibat,2),nstates /)
-                if((qhi(1)-qlo(1)+1).ne.qld(1)) then
-                    qld(1) = qhi(1) - qlo(1) + 1
-                    if(allocated(scr1)) deallocate(scr1)
-                    allocate(scr1(qld(1),nstates))
-                end if
-                call NGA_GET(q2,qlo,qhi,scr1,qld)
-                !If a 'diagonal/diagonal' block, do the constant, kinetic energy terms
-                !Also, the <m|x^a|n> terms, where m==n for a=2,4,6, are done here as well
-                if(ibat.ge.(nseg*myid+1).and.ibat.le.(nseg*myid+nseg)) then 
-                    call get_barray(qlo(1),barray)
-                    barray(nmodes) = barray(nmodes) - 1
-                    rindx = qlo(1) - lo(1)
-                    dkin = 0.
-                    do j = 1,nmodes    
-                        dkin = dkin + (barray(j)-0.5)*aomega(j)
-                    end do 
-                    do j = 1,qld(1)
-                        !Kinetic Energy
-                        rindx = rindx + 1
-                        k = nmodes
-                        do
-                            if(barray(k).lt.nfunc(k)) exit
-                            dkin = dkin - (barray(k)-1)*aomega(k)
-                            barray(k) = 1
-                            k = k - 1
-                        end do
-                        barray(k) = barray(k) + 1
-                        dkin = dkin + aomega(k)
-                        !Constant TErm
-                        do k = 1,nstblks
-                            dvals(cpindx(k,1),cpindx(k,2)) = concoef(k)
-                            dvals(cpindx(k,2),cpindx(k,1)) = concoef(k)
-                        end do
-                        !Diagonal terms       
-                        do k = 1,ndiag
-                            d1 = 1.
-                            do l = 1,dordr(k)
-                                d1 = d1*homatel(iordr(1,nzindx(2*l,dmap(k)))+barray(nzindx(2*l-1,dmap(k))))
-                            end do
-                            do l = 1,nzblks(1,dmap(k))
-                                m = nzblks(2*l,dmap(k))
-                                n = nzblks(2*l+1,dmap(k))
-                                dvals(m,n) = dvals(m,n) + nzcoef(l,dmap(k))*d1
-                            end do
-                        end do
-                        do k = 1,nstates
-                            scr2(rindx,k) = scr2(rindx,k) + (dvals(k,k)+dkin)*scr1(j,k)
-                        end do
-                        do k = 1,ndblks
-                            scr2(rindx,dblks(2*k-1)) = scr2(rindx,dblks(2*k-1)) + dvals(dblks(2*k-1),dblks(2*k))*scr1(j,dblks(2*k))
-                        end do
-                    end do
-                end if
-                !Now do all remaining potential terms, <m|x^a|n> for m!=n, a=1,2,3,4,etc
-                ioff1 = 0
-                ioff2 = 0
-                do j = 1,ordr
-                    do k = 1,nztrms(j)
-                        do l = 1,j
-                            inds(l) = nzindx(2*l-1,ioff1+k)
-                            icnt(l) = nzindx(2*l,ioff1+k)
-                        end do
-                        do l = 1,nsteps(ioff1+k)
-                            if(nelems(ioff2+l,ibat).gt.0) then
-                                d1 = 1.
-                                do m = 1,j
-                                    bval(m)  = basind(m,ioff2+l,ibat)
-                                    bcnt(m)  = bstart(m,ioff2+l,ibat)
-                                    n = iordr(stype(m,ioff2+l),icnt(m))+bval(m)-basdif(m,ioff2+l)
-                                    !if(n.lt.1.or.n.gt.nmatel)n=1
-                                    matel(m) = homatel(n)
-                                    d1 = d1*matel(m)
-                                end do
-                                cindx = rcshft(1,ioff2+l,ibat)
-                                rindx = rcshft(2,ioff2+l,ibat)
-                                bcnt(j+1) = 0
-                            end if
-                            do m = 1,nelems(ioff2+l,ibat)
-                                do n = 1,nzblks(1,ioff1+k)
-                                    scr2(rindx,nzblks(2*n,ioff1+k)) = scr2(rindx,nzblks(2*n,ioff1+k))&
-                                        +scr1(cindx,nzblks(2*n+1,ioff1+k))*nzcoef(n,ioff1+k)*d1
-                                end do
-                                cindx = cindx + 1
-                                rindx = rindx + 1
-                                bcnt(1) = bcnt(1) + 1
-                                do n = 1,j
-                                    if(bcnt(n).le.bmax(n,ioff1+k)) exit
-                                    bcnt(n) = 1
-                                    bval(n) = bval(n) + 1
-                                    if(bval(n).gt.nfunc(inds(n)))then
-                                        bcnt(n+1) = bcnt(n+1) + 1
-                                        bval(n)   = 1 + basdif(n,ioff2+l)
-                                        cindx     = cindx + basdif(n,ioff2+l)*shft(inds(n))
-                                        rindx     = rindx + basdif(n,ioff2+l)*shft(inds(n))
-                                    end if
-                                    d1 = d1/matel(n)
-                                    matel(n) = homatel(iordr(stype(n,ioff2+l),icnt(n))+bval(n)-basdif(n,ioff2+l))
-                                    d1 = d1*matel(n)
-                                end do
-                            end do
-                        end do
-                        ioff2 = ioff2 + nsteps(ioff1+k)
-                    end do
-                    ioff1 = ioff1 + nztrms(j)
+            write(unit=OUTFILE,fmt=1005)
+            do i = 1,nproc
+                write(unit=OUTFILE,fmt=1001)i
+                do j = 1,nseg
+                    write(unit=OUTFILE,fmt=1006)j,vbounds((i-1)*nseg+j,1),vbounds((i-1)*nseg+j,2),  &
+                                                  vbounds((i-1)*nseg+j,2)-vbounds((i-1)*nseg+j,1)+1
                 end do
+            end do
+            write(unit=OUTFILE,fmt=1007)
+        end if
+        lo = (/ vbounds(myid*nseg+1,1), one /)
+        hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
+    !Setup the Hamiltonian
+        !Allocate the buffer that can hold the local portion of a global array vector
+            rlen = hi(1) - lo(1) + 1
+            allocate(scr2(rlen,nstates))
+            call ga_sync()
+            call compute_allIndex()
+        !Count the number of terms -- make sure predicted number agrees with the observed number of terms
+            ioff1 = 0
+            ioff2 = 0
+            do i = 1,ordr
+                do j = 1,nztrms(i)
+                    trm1 = dimen
+                    do l = 1,i
+                       trm1 = trm1/nfunc(nzindx(2*l-1,ioff1+j))
+                    end do
+                    do k = 1,nsteps(ioff1+j) 
+                        trm2 = 1
+                        do l = 1,i
+                            trm2 = trm2*(nfunc(nzindx(2*l-1,ioff1+j))-basdif(l,ioff2+k))
+                        end do
+                        l = 1
+                        do
+                            if(l.gt.nzblks(1,ioff1+j)) exit
+                            m = nzblks(2*l,ioff1+j)*(nzblks(2*l,ioff1+j)-1)/2+nzblks(2*l+1,ioff1+j)
+                            ntcom(m,i) = ntcom(m,i) + trm1*trm2
+                            do n = 1,nproc*nseg
+                             ntdet(m,i) = ntdet(m,i) + nelems(ioff2+k,n)
+                            end do
+                            if(nzblks(2*l,ioff1+j).ne.nzblks(2*l+1,ioff1+j))l = l + 1
+                            l = l + 1
+                        end do
+                    end do
+                    isdiag = .true.
+                    do n = 1,i 
+                        if(mod(nzindx(2*n,ioff1+j),2).ne.0)isdiag=.false.
+                    end do
+                    if(isdiag)then
+                        l = 1
+                        do 
+                            if(l.gt.nzblks(1,ioff1+j)) exit
+                            m = nzblks(2*l,ioff1+j)*(nzblks(2*l,ioff1+j)-1)/2+nzblks(2*l+1,ioff1+j)
+                            ntdet(m,i) = ntdet(m,i) + hi(1) - lo(1) + 1
+                            if(nzblks(2*l,ioff1+j).ne.nzblks(2*l+1,ioff1+j)) l = l + 1
+                            l = l + 1
+                        end do
+                    end if
+                    ioff2 = ioff2 + nsteps(ioff1+j)
+                end do
+                ioff1 = ioff1 + nztrms(i)
+            end do
+            call ga_sync()
+            do i = 1,ordr
+                call MPI_ALLREDUCE(ntdet(1:nstblks,i),ntsum(1:nstblks,i),nstblks,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,istat)
+            end do
+            if(myid.eq.0)then!Print out the results of the term counting
+                write(OUTFILE,1008)
+                trm1 = 0
+                do i = 1,nstblks
+                    do j = 1,ordr
+                        trm1 = trm1 + ntsum(i,j)
+                        write(OUTFILE,1009)j,i,ntsum(i,j)
+                        if(ntsum(i,j).ne.ntcom(i,j)) write(OUTFILE,1010)j,i,ntcom(i,j),ntsum(i,j)
+                    end do
+                    write(OUTFILE,1011)
+                end do
+                write(OUTFILE,1007)
+                write(OUTFILE,1012)trm1
+            end if
+            call ga_sync()
+            nmatel = 0
+            do i = 1,ordr
+                j = mod(i,2)
+                do
+                    if(j.gt.ordr)EXIT
+                    if(nmax-j.gt.0)nmatel = nmatel + nmax-j
+                    j = j + 2
+                end do
+            end do
+        !Construct array holding requisite h.o. matrix elements
+            allocate(iordr(int(ordr/2.)+1,ordr))
+            allocate(homatel(nmatel))
+            ioff1 = 0
+            do i = 1,ordr
+                j = mod(i,2)
+                k = 1
+                do 
+                    if(j.gt.ordr) exit
+                    iordr(k,i) = ioff1
+                    do l = 1,nmax-j
+                        ioff1 = ioff1 + 1
+                        homatel(ioff1) = hoelem(i,l,l+j)
+                    end do
+                    k = k + 1
+                    j = j + 2
+                end do
+            end do
+        call setintmatrix(dchk,nstates,nstates,zero)!Construct list of state blocks involving diagonal terms
+        do i = 1,nstblks!Constant terms
+            if(abs(concoef(i)).gt.1e-16)then
+                dchk(cpindx(i,1),cpindx(i,2)) = 1
+                dchk(cpindx(i,2),cpindx(i,1)) = 1
             end if
         end do
-        call NGA_PUT(q3,lo,hi,scr2,ld,dscale)
-        call ga_sync()
-        deallocate(scr1)
-        call system_clock(tend,tcount,tmx)
-        if(myid.eq.0.and.iter.le.niter)write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
-        iterend = tend
-        1001 format(3x,' - Total matrix-vector product:          ',f14.3,' secs.')
-    end subroutine Hv
-    
-    subroutine lanczos_step(iter)
-        use progdata, only: myid,nstates,dimen,alpha,beta,iterstart,iterend,q1,q2,q3,orthog,one,two,three
-        use filedata, only: OUTFILE
-        implicit none
-#include 'global.fh'
-        integer*8, intent(in)		:: iter
-        integer*8                       :: tend,tcount,tmx
-        real*8	        :: onedp
-        onedp = 1.
-        alpha(iter) = GA_DDOT(q2,q3)
-        call GA_ADD(onedp,q3,-alpha(iter),q2,q3)
-        if(iter.gt.1)call GA_ADD(onedp,q3,-beta(iter-1),q1,q3)
-        call ga_sync()
-        beta(iter) = Sqrt(GA_DDOT(q3,q3))
-        call system_clock(tend,tcount,tmx)
-        if(myid.eq.0) then
-            write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
-            if(.not.orthog.or.iter.eq.1)write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
+        !Potential terms
+            do i = 1,ndiag
+                do j = 1,nzblks(1,dmap(i))
+                    k = nzblks(2*j,dmap(i))
+                    l = nzblks(2*j+1,dmap(i))
+                    dchk(k,l) = 1
+                end do
+            end do
+            ndblks = 0
+            allocate(dblks(2*nstates*nstates))
+        do i = 1,nstates!Store the blocks that have non-zero diagonal terms
+            do j = 1,i-1
+                if(dchk(i,j).ne.0)then
+                    ndblks = ndblks + 1
+                    dblks(2*ndblks-1) = i
+                    dblks(2*ndblks)   = j
+                end if
+            end do
+        end do
+    !Set restart dependent parameters
+        write(procindex,'(i4)')myid
+        procindex = adjustl(procindex)
+        if(restartrun) then!If restarting from previous computation
+            if(myid.eq.0)call load_restartinfo(vecload)
+            nload = iiter - 1
+            call ga_sync()
+            call mpi_bcast(vecload,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
+            call mpi_bcast(alpha,nload,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+            call mpi_bcast(beta(0:nload),nload+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+            if(orthog) then
+                do i = 1,2
+                    call mpi_bcast(omega(i,0:nload),nload+1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
+                end do
+            end if
+            if(savevecs) then
+                open(unit=ARCHIVE,file=trim(adjustl(outdir))//'nadvibs.34.'//trim(procindex),access='direct', &
+                     status='old',form='unformatted',recl=8*rlen)
+                rewind(ARCHIVE)
+            end if
+            if(vecload) then
+                open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),access='direct', &
+                     status='old',form='unformatted',recl=8*rlen)
+                rewind(QRESTART)
+                call read_ga(q1,QRESTART,1)
+                call read_ga(q2,QRESTART,2)
+                call read_ga(q3,QRESTART,3)
+                close(QRESTART,status='delete')
+            else
+                call read_ga(q1,ARCHIVE,nload-2)
+                call read_ga(q2,ARCHIVE,nload-1)
+                call read_ga(q3,ARCHIVE,nload)
+                call GA_SCALE(q3,beta(nload))
+            end if
+            call ga_sync()
+        else
+            omega(1,0) = 0.
+            omega(1,1) = 1.
+            omega(2,0) = 0.
+            omega(2,1) = gauss_random(zerodp,dble(0.6))*epsilon*nstates*dimen
+            omega(2,2) = 1.
+            if(savevecs)then
+                open(ARCHIVE,file=trim(adjustl(outdir))//'nadvibs.34.'//trim(procindex),access='direct', &
+                     form='unformatted',status='replace',recl=8*rlen)
+                rewind(ARCHIVE)
+            end if
+            call GA_ZERO(q2)
         end if
-        iterend = tend
-        1001 format(3x,' - Take Lanczos step:                    ',f14.3,' secs.')
-        1002 format(3x,'Time to complete iteration:              ',f14.3,' secs.'/) 	
-    end subroutine lanczos_step
-    
-    subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the lanczos vectors
-        use progdata, only: myid,alpha,beta,dimen,nstates,epsilon,one,two,three,omega,orthogexact, &
-                            zerodp,chkorthog,iterend,q1,q2,q3,niter
-        use filedata, only: OUTFILE,ARCHIVE
-        implicit none
+    call system_clock(totend,tcount,tmx)
+    if(myid.eq.0) then
+        open(SCRFILE,file='scratch.dat',status='replace')
+        write(OUTFILE,'(a)') ' '
+        write(OUTFILE,'(a)') '  Initialization complete.'
+        write(OUTFILE,1013)1.*(totend-totstart)/tcount
+    end if
+    !Generate starting vector, if not restarting
+        if(.not.restartrun) then
+            call ga_sync()
+            call generate_initialvec()
+            beta(0) = Sqrt(GA_DDOT(q3,q3))
+        end if
+        if(myid.eq.0) write(OUTFILE,1014)
+        call ga_sync()
+        call system_clock(totstart,tcount,tmx)
+    1020 format('x=',i3,' nelems(1,x)=',i6,' nelems(2,x)=',i6)
+    1000 format(/,3x,'Distribution of Lanczos vectors -------------------')
+    1001 format(/,3x,'PROCESS ',i3)
+    1002 format(3x,'Q1: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
+    1003 format(3x,'Q2: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
+    1004 format(3x,'Q3: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
+    1005 format(/,3x,'Segmentation Scheme -------------------------------')
+    1006 format(3x,'Seg ',i3,': ',i9,' -> ',i9,' LENGTH: ',i9)
+    1007 format(/,3x,'---------------------------------------------------')
+    1008 format(' ------- TERM COUNTING FOR VIBRONIC HAMILTONIAN --------')
+    1009 format('  TOT. NUM. ',i3,'-INDEX TERMS IN BLK ',i3,': ',i14)
+    1010 format('  !!!!!!!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!!',/, &
+                  '  DISAGREEMENT IN # OF ',i3,'-INDEX TERMS IN BLK ',i3,': predict=',i11,' != actual=',i11,/)
+    1011 format('')
+    1012 format('  TOTAL NUMBER OF TERMS IN ALL BLOCKS:    ',i12)
+    1013 format('  Time Required: ',f14.3,' secs.')
+    1014 format(/,'  >>>>>>>> Running Lanczos Iterations <<<<<<<<< '/)
+end subroutine initialize_elements
+
+!The Lanczos alogrithm employed here has the following form:
+!    r[1] != 0, q[0] = 0, beta[1] = ||r[1]||       -- intialize_elements
+!    do j = 1, niter                               -- Main program loop
+!        q2 = qnew[j]/beta[j]                      -- update_lanczos
+!        u[j] = q2*A*q2 - beta[j]*q1               -- Hv and lanczos_step
+!        alpha[j] = u[j] * q[j]                    -- lanczos_step
+!        r[j+1] = u[j] - alpha[j]q[j]              -- lanczos_step
+!        beta[j+1] = ||r[j+1]||                    -- lanczos_step
+!        if(orthog)orthogonalize lanczos vectors   -- orthog_vectors
+!    end do                                        -- Main program loop  
+subroutine update_lanczos(iter)
+    use progdata, only: dimen,beta,nstates,q1,q2,q3,myid,nproc,iterstart,iterend,one,savevecs
+    use filedata, only: OUTFILE,ARCHIVE
+    implicit none
 #include 'global.fh'
-        integer*8, intent(in)                  :: iter
-        integer*8                              :: i,j,k,istat,ireq
-        integer*8                              :: tend,tcount,tmx
-        real*8                     :: randnorm,dp,gauss_random
-        real*8,dimension(2,iter-1) :: ocheck
-        if(orthogexact) then
-            call setarray(omega(2,0:iter),iter+1,zerodp)
-            do i = 1,iter
+#include 'mafdecls.fh'
+    integer*8,intent(in)	:: iter
+    integer*8               :: tcount,tmx,istat,ireq
+    call system_clock(iterstart,tcount,tmx)
+    call GA_COPY(q2,q1)
+    call GA_SCALE(q3,1./beta(iter-1))
+    call GA_COPY(q3,q2)
+    call ga_sync()
+    if(savevecs) then
+        call write_ga(q2,ARCHIVE,iter)
+        call ga_sync()
+    end if
+    call system_clock(iterend,tcount,tmx)
+    if(myid.eq.0) then
+        call write_scrfile(iter)
+        write(unit=OUTFILE,fmt=1000)iter
+        write(unit=OUTFILE,fmt=1001)1.*(iterend-iterstart)/tcount 
+    end if
+    1000 format(3x,'ITERATION: ',i5)
+    1001 format(3x,' - Update Lanczos vector:                ',f14.3,' secs.')
+end subroutine update_lanczos
+
+subroutine Hv(iter)
+    use progdata, only: myid,ordr,nproc,niter,dimen,nstates,nstblks,cpindx,nmodes,nfunc,zero,one,two,zerodp,nalltrms,  &
+                        q2,q3,vbounds,scr1,scr2,nseg,concoef,shft,aomega,iterend,iordr,lo,hi,nmatel,                   &
+                        stype,nztrms,basind,basdif,bstart,rcshft,nelems,nsteps,bmax,nzindx,nzblks,nzcoef,homatel,      &
+                        ndiag,dordr,dmap,ndblks,dblks
+    use filedata, only: OUTFILE
+    implicit none
+#include 'global.fh'
+    integer*8,intent(in)                                       :: iter
+    integer*8                                                  :: i,j,k,l,m,n,ioff1,ioff2
+    integer*8                                                  :: ibat,nbat,rindx,cindx
+    integer*8                                                  :: tend,tcount,tmx
+    integer*8,dimension(1)                                     :: ld,qld
+    integer*8,dimension(2)                                     :: qlo,qhi
+    integer*8,dimension(nmodes)                                :: barray
+    integer*8,dimension(ordr)                                  :: inds,icnt,bval
+    integer*8,dimension(ordr+1)                                :: bcnt
+    real*8                                         :: dkin,d1,dscale
+    real*8,dimension(ordr)                         :: matel
+    real*8,dimension(nstates,nstates)              :: dvals
+    dscale = 1.
+    qld(1) = 0
+    ld(1) = hi(1) - lo(1) + 1
+    nbat = nseg*nproc
+    ibat = nseg*myid
+    call setmatrix(scr2,ld(1),nstates,zerodp)
+    do i = 1,nbat!Loop over the number of processors
+        ibat = ibat + 1
+        if(ibat.gt.nbat) ibat = ibat - nbat
+        if(nalltrms(ibat).gt.0) then
+            qlo = (/ vbounds(ibat,1),1 /)
+            qhi = (/ vbounds(ibat,2),nstates /)
+            if((qhi(1)-qlo(1)+1).ne.qld(1)) then
+                qld(1) = qhi(1) - qlo(1) + 1
+                if(allocated(scr1)) deallocate(scr1)
+                allocate(scr1(qld(1),nstates))
+            end if
+            call NGA_GET(q2,qlo,qhi,scr1,qld)
+            !If a 'diagonal/diagonal' block, do the constant, kinetic energy terms
+            !Also, the <m|x^a|n> terms, where m==n for a=2,4,6, are done here as well
+            if(ibat.ge.(nseg*myid+1).and.ibat.le.(nseg*myid+nseg)) then 
+                call get_barray(qlo(1),barray)
+                barray(nmodes) = barray(nmodes) - 1
+                rindx = qlo(1) - lo(1)
+                dkin = 0.
+                do j = 1,nmodes    
+                    dkin = dkin + (barray(j)-0.5)*aomega(j)
+                end do 
+                do j = 1,qld(1)
+                    !Kinetic Energy
+                    rindx = rindx + 1
+                    k = nmodes
+                    do
+                        if(barray(k).lt.nfunc(k)) exit
+                        dkin = dkin - (barray(k)-1)*aomega(k)
+                        barray(k) = 1
+                        k = k - 1
+                    end do
+                    barray(k) = barray(k) + 1
+                    dkin = dkin + aomega(k)
+                    !Constant TErm
+                    do k = 1,nstblks
+                        dvals(cpindx(k,1),cpindx(k,2)) = concoef(k)
+                        dvals(cpindx(k,2),cpindx(k,1)) = concoef(k)
+                    end do
+                    !Diagonal terms       
+                    do k = 1,ndiag
+                        d1 = 1.
+                        do l = 1,dordr(k)
+                            d1 = d1*homatel(iordr(1,nzindx(2*l,dmap(k)))+barray(nzindx(2*l-1,dmap(k))))
+                        end do
+                        do l = 1,nzblks(1,dmap(k))
+                            m = nzblks(2*l,dmap(k))
+                            n = nzblks(2*l+1,dmap(k))
+                            dvals(m,n) = dvals(m,n) + nzcoef(l,dmap(k))*d1
+                        end do
+                    end do
+                    do k = 1,nstates
+                        scr2(rindx,k) = scr2(rindx,k) + (dvals(k,k)+dkin)*scr1(j,k)
+                    end do
+                    do k = 1,ndblks
+                        scr2(rindx,dblks(2*k-1)) = scr2(rindx,dblks(2*k-1)) + dvals(dblks(2*k-1),dblks(2*k))*scr1(j,dblks(2*k))
+                    end do
+                end do
+            end if
+            !Now do all remaining potential terms, <m|x^a|n> for m!=n, a=1,2,3,4,etc
+            ioff1 = 0
+            ioff2 = 0
+            do j = 1,ordr
+                do k = 1,nztrms(j)
+                    do l = 1,j
+                        inds(l) = nzindx(2*l-1,ioff1+k)
+                        icnt(l) = nzindx(2*l,ioff1+k)
+                    end do
+                    do l = 1,nsteps(ioff1+k)
+                        if(nelems(ioff2+l,ibat).gt.0) then
+                            d1 = 1.
+                            do m = 1,j
+                                bval(m)  = basind(m,ioff2+l,ibat)
+                                bcnt(m)  = bstart(m,ioff2+l,ibat)
+                                n = iordr(stype(m,ioff2+l),icnt(m))+bval(m)-basdif(m,ioff2+l)
+                                !if(n.lt.1.or.n.gt.nmatel)n=1
+                                matel(m) = homatel(n)
+                                d1 = d1*matel(m)
+                            end do
+                            cindx = rcshft(1,ioff2+l,ibat)
+                            rindx = rcshft(2,ioff2+l,ibat)
+                            bcnt(j+1) = 0
+                        end if
+                        do m = 1,nelems(ioff2+l,ibat)
+                            do n = 1,nzblks(1,ioff1+k)
+                                scr2(rindx,nzblks(2*n,ioff1+k)) = scr2(rindx,nzblks(2*n,ioff1+k))&
+                                    +scr1(cindx,nzblks(2*n+1,ioff1+k))*nzcoef(n,ioff1+k)*d1
+                            end do
+                            cindx = cindx + 1
+                            rindx = rindx + 1
+                            bcnt(1) = bcnt(1) + 1
+                            do n = 1,j
+                                if(bcnt(n).le.bmax(n,ioff1+k)) exit
+                                bcnt(n) = 1
+                                bval(n) = bval(n) + 1
+                                if(bval(n).gt.nfunc(inds(n)))then
+                                    bcnt(n+1) = bcnt(n+1) + 1
+                                    bval(n)   = 1 + basdif(n,ioff2+l)
+                                    cindx     = cindx + basdif(n,ioff2+l)*shft(inds(n))
+                                    rindx     = rindx + basdif(n,ioff2+l)*shft(inds(n))
+                                end if
+                                d1 = d1/matel(n)
+                                matel(n) = homatel(iordr(stype(n,ioff2+l),icnt(n))+bval(n)-basdif(n,ioff2+l))
+                                d1 = d1*matel(n)
+                            end do
+                        end do
+                    end do
+                    ioff2 = ioff2 + nsteps(ioff1+k)
+                end do
+                ioff1 = ioff1 + nztrms(j)
+            end do
+        end if
+    end do
+    call NGA_PUT(q3,lo,hi,scr2,ld,dscale)
+    call ga_sync()
+    deallocate(scr1)
+    call system_clock(tend,tcount,tmx)
+    if(myid.eq.0.and.iter.le.niter)write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
+    iterend = tend
+    1001 format(3x,' - Total matrix-vector product:          ',f14.3,' secs.')
+end subroutine Hv
+
+subroutine lanczos_step(iter)
+    use progdata, only: myid,nstates,dimen,alpha,beta,iterstart,iterend,q1,q2,q3,orthog,one,two,three
+    use filedata, only: OUTFILE
+    implicit none
+#include 'global.fh'
+    integer*8, intent(in)		:: iter
+    integer*8                       :: tend,tcount,tmx
+    real*8	        :: onedp
+    onedp = 1.
+    alpha(iter) = GA_DDOT(q2,q3)
+    call GA_ADD(onedp,q3,-alpha(iter),q2,q3)
+    if(iter.gt.1)call GA_ADD(onedp,q3,-beta(iter-1),q1,q3)
+    call ga_sync()
+    beta(iter) = Sqrt(GA_DDOT(q3,q3))
+    call system_clock(tend,tcount,tmx)
+    if(myid.eq.0) then
+        write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
+        if(.not.orthog.or.iter.eq.1)write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
+    end if
+    iterend = tend
+    1001 format(3x,' - Take Lanczos step:                    ',f14.3,' secs.')
+    1002 format(3x,'Time to complete iteration:              ',f14.3,' secs.'/) 	
+end subroutine lanczos_step
+
+subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the lanczos vectors
+    use progdata, only: myid,alpha,beta,dimen,nstates,epsilon,one,two,three,omega,orthogexact, &
+                        zerodp,chkorthog,iterend,q1,q2,q3,niter
+    use filedata, only: OUTFILE,ARCHIVE
+    implicit none
+#include 'global.fh'
+    integer*8, intent(in)                  :: iter
+    integer*8                              :: i,j,k,istat,ireq
+    integer*8                              :: tend,tcount,tmx
+    real*8                     :: randnorm,dp,gauss_random
+    real*8,dimension(2,iter-1) :: ocheck
+    if(orthogexact) then
+        call setarray(omega(2,0:iter),iter+1,zerodp)
+        do i = 1,iter
+            call read_ga(q1,ARCHIVE,i)
+            call ga_sync()
+            omega(2,i) = GA_DDOT(q3,q1)
+        end do
+    else
+        if(iter.lt.niter)omega(2,iter+1) = 1.0
+        omega(1,iter) = gauss_random(zerodp,dble(0.6))*epsilon*nstates*dimen*beta(1)/beta(iter)
+        do k = 1,iter-1
+            omega(1,k) = (1/beta(iter))*                                             &
+                         (beta(k)*omega(2,k+1) + (alpha(k)-alpha(iter))*omega(2,k) + &
+                          beta(k-1)*omega(2,k-1) - beta(iter-1)*omega(1,k)) +        &
+                          epsilon*(beta(k)+beta(iter))*gauss_random(zerodp,dble(0.3))
+        end do
+        do i = 1,iter
+            dp = omega(2,i)
+            omega(2,i) = omega(1,i)
+            omega(1,i) = dp
+        end do
+        if(Mod(iter,chkorthog).eq.0) then
+            call setmatrix(ocheck,two,iter-1,zerodp)
+            do i = 1,iter-1
                 call read_ga(q1,ARCHIVE,i)
                 call ga_sync()
-                omega(2,i) = GA_DDOT(q3,q1)
+                ocheck(1,i) = GA_DDOT(q2,q1)
+                ocheck(2,i) = GA_DDOT(q3,q1)
+                ocheck(2,i) = ocheck(2,i)/beta(iter)
             end do
-        else
-            if(iter.lt.niter)omega(2,iter+1) = 1.0
-            omega(1,iter) = gauss_random(zerodp,dble(0.6))*epsilon*nstates*dimen*beta(1)/beta(iter)
-            do k = 1,iter-1
-                omega(1,k) = (1/beta(iter))*                                             &
-                             (beta(k)*omega(2,k+1) + (alpha(k)-alpha(iter))*omega(2,k) + &
-                              beta(k-1)*omega(2,k-1) - beta(iter-1)*omega(1,k)) +        &
-                              epsilon*(beta(k)+beta(iter))*gauss_random(zerodp,dble(0.3))
-            end do
-            do i = 1,iter
-                dp = omega(2,i)
-                omega(2,i) = omega(1,i)
-                omega(1,i) = dp
-            end do
-            if(Mod(iter,chkorthog).eq.0) then
-                call setmatrix(ocheck,two,iter-1,zerodp)
-                do i = 1,iter-1
-                    call read_ga(q1,ARCHIVE,i)
-                    call ga_sync()
-                    ocheck(1,i) = GA_DDOT(q2,q1)
-                    ocheck(2,i) = GA_DDOT(q3,q1)
-                    ocheck(2,i) = ocheck(2,i)/beta(iter)
+            do i = 1,iter-1
+                do k = 1,2
+                   if(abs(omega(k,i)).lt.abs(ocheck(k,i))) then
+                      if(myid.eq.0) write(*,1001)iter,iter+k-1,i,omega(k,i),ocheck(k,i)
+                      omega(k,i) = ocheck(k,i)
+                   end if
                 end do
-                do i = 1,iter-1
-                    do k = 1,2
-                       if(abs(omega(k,i)).lt.abs(ocheck(k,i))) then
-                          if(myid.eq.0) write(*,1001)iter,iter+k-1,i,omega(k,i),ocheck(k,i)
-                          omega(k,i) = ocheck(k,i)
-                       end if
-                    end do
-                end do
-            end if
+            end do
         end if
-        call system_clock(tend,tcount,tmx)
-        if(myid.eq.0.and.(orthogexact.or.Mod(iter,chkorthog).eq.0)) then
-            write(unit=OUTFILE,fmt=1002)1.*(tend-iterend)/tcount
-        elseif(myid.eq.0) then
-            write(unit=OUTFILE,fmt=1003)1.*(tend-iterend)/tcount
-        end if
-        iterend = tend
-        1000 format('OMEGA(',i5,',',i5,')=',es18.10,' EXACT:',es18.10)
-        1001 format('ITERATION ',i4,', OMEGA(',i4,',',i4,') -- ',es18.10,' --> ',es18.10)
-        1002 format(3x,' - Determing Orthogonality, Exact:       ',f14.3,' secs.')
-        1003 format(3x,' - Determing Orthogonality, Recurrence:  ',f14.3,' secs.')
-        1004 format(3x,' OMEGA(',i3,',',i3,') -> recur=',es18.10,'  exact=',es18.10)
-        1005 format(3x,' ITER=',i3,' J=',i3,' OMGEGA=',es18.10,' ACTUAL=',es18.10)
-    end subroutine set_omega
-    
-    !This formulation is based on the Partial Orthogonalization procedure of Horst Simon, Mathematics of Computation, 42, 115-142, (1984)
-    subroutine partial_orthog(iter)
-        use progdata, only: myid,alpha,beta,omega,dimen,nstates,niter,epsilon,eta,iterstart,iterend, &
-                            one,two,zero,zerodp,q1,q2,q3,loindex,roindex,northog,firststep
-        use filedata, only: OUTFILE,ARCHIVE
-        implicit none
+    end if
+    call system_clock(tend,tcount,tmx)
+    if(myid.eq.0.and.(orthogexact.or.Mod(iter,chkorthog).eq.0)) then
+        write(unit=OUTFILE,fmt=1002)1.*(tend-iterend)/tcount
+    elseif(myid.eq.0) then
+        write(unit=OUTFILE,fmt=1003)1.*(tend-iterend)/tcount
+    end if
+    iterend = tend
+    1000 format('OMEGA(',i5,',',i5,')=',es18.10,' EXACT:',es18.10)
+    1001 format('ITERATION ',i4,', OMEGA(',i4,',',i4,') -- ',es18.10,' --> ',es18.10)
+    1002 format(3x,' - Determing Orthogonality, Exact:       ',f14.3,' secs.')
+    1003 format(3x,' - Determing Orthogonality, Recurrence:  ',f14.3,' secs.')
+    1004 format(3x,' OMEGA(',i3,',',i3,') -> recur=',es18.10,'  exact=',es18.10)
+    1005 format(3x,' ITER=',i3,' J=',i3,' OMGEGA=',es18.10,' ACTUAL=',es18.10)
+end subroutine set_omega
+
+!This formulation is based on the Partial Orthogonalization procedure of Horst Simon, Mathematics of Computation, 42, 115-142, (1984)
+subroutine partial_orthog(iter)
+    use progdata, only: myid,alpha,beta,omega,dimen,nstates,niter,epsilon,eta,iterstart,iterend, &
+                        one,two,zero,zerodp,q1,q2,q3,loindex,roindex,northog,firststep
+    use filedata, only: OUTFILE,ARCHIVE
+    implicit none
 #include 'global.fh'
-        integer*8,intent(in)		                        :: iter
-        integer*8			                        :: i,j,noindices,istat,ireq
-        integer*8                                               :: tend,tcount,tmx
-        integer*8,dimension(Ceiling(1.*iter/10))                :: oindices,lindices,rindices
-        real*8		                        :: dpval,onedp,gauss_random
-        real*8,dimension(Ceiling(1.*iter/10.),iter) :: dpvec
-        onedp=1d0
-        if(firststep) then!Check if partial reorthogonalization is necessary
-            noindices = 0
-            northog = 0
-            do i = 1,iter
-                if(abs(omega(2,i)).ge.Sqrt(epsilon)) then
-                    noindices = noindices + 1
-                    oindices(noindices) = i
-                end if
+    integer*8,intent(in)		                        :: iter
+    integer*8			                        :: i,j,noindices,istat,ireq
+    integer*8                                               :: tend,tcount,tmx
+    integer*8,dimension(Ceiling(1.*iter/10))                :: oindices,lindices,rindices
+    real*8		                        :: dpval,onedp,gauss_random
+    real*8,dimension(Ceiling(1.*iter/10.),iter) :: dpvec
+    onedp=1d0
+    if(firststep) then!Check if partial reorthogonalization is necessary
+        noindices = 0
+        northog = 0
+        do i = 1,iter
+            if(abs(omega(2,i)).ge.Sqrt(epsilon)) then
+                noindices = noindices + 1
+                oindices(noindices) = i
+            end if
+        end do
+        if(noindices.gt.0) then
+            do i = 1,noindices
+                do j = oindices(i),1,-1
+                    if(abs(omega(2,j)).lt.eta) exit
+                end do
+                if(j.lt.1)j=1
+                lindices(i) = j
             end do
-            if(noindices.gt.0) then
-                do i = 1,noindices
-                    do j = oindices(i),1,-1
-                        if(abs(omega(2,j)).lt.eta) exit
-                    end do
-                    if(j.lt.1)j=1
-                    lindices(i) = j
+            do i = 1,noindices
+                do j = oindices(i),iter
+                    if(abs(omega(2,j)).lt.eta) exit
                 end do
-                do i = 1,noindices
-                    do j = oindices(i),iter
-                        if(abs(omega(2,j)).lt.eta) exit
-                    end do
-                    if(j.gt.iter) j=iter
-                    rindices(i) = j
-                end do
-                northog = 1
-                loindex(northog) = lindices(northog)
-                roindex(northog) = rindices(northog)
-                do i = 2,noindices
-                    if(lindices(i).ne.loindex(northog).and.rindices(i).ne.roindex(northog)) then
-                        northog = northog + 1
-                        loindex(northog) = lindices(i)
-                        roindex(northog) = rindices(i)
-                    end if
-                end do
-                do i = 1,northog
-                    do j = 1,i-1
-                        if(loindex(i).lt.loindex(j).and.roindex(i).gt.loindex(j).or. &
-                           loindex(j).lt.loindex(i).and.roindex(j).gt.loindex(i))    &
-                            write(OUTFILE,*)' -- ERROR: OVERLAPPING ORTHOGONALIZATION RANGES -- '
-                    end do
-                end do
-                if(minval(loindex,mask=loindex.gt.0).gt.1) then
+                if(j.gt.iter) j=iter
+                rindices(i) = j
+            end do
+            northog = 1
+            loindex(northog) = lindices(northog)
+            roindex(northog) = rindices(northog)
+            do i = 2,noindices
+                if(lindices(i).ne.loindex(northog).and.rindices(i).ne.roindex(northog)) then
                     northog = northog + 1
-                    loindex(northog) = one
-                    roindex(northog) = one
+                    loindex(northog) = lindices(i)
+                    roindex(northog) = rindices(i)
                 end if
-            end if
-        end if
-        if(northog.gt.0) then!If partial orthogonalization is necessary...
+            end do
             do i = 1,northog
-                do j = loindex(i),roindex(i)
-                    call read_ga(q1,ARCHIVE,j)
-                    call ga_sync()
-                    dpvec(i,j-loindex(i)+1) = GA_DDOT(q3,q1)
+                do j = 1,i-1
+                    if(loindex(i).lt.loindex(j).and.roindex(i).gt.loindex(j).or. &
+                       loindex(j).lt.loindex(i).and.roindex(j).gt.loindex(i))    &
+                        write(OUTFILE,*)' -- ERROR: OVERLAPPING ORTHOGONALIZATION RANGES -- '
                 end do
             end do
-            do i = 1,northog
-                do j = loindex(i),roindex(i)
-                    call read_ga(q1,ARCHIVE,j)
-                    call ga_sync()
-                    call GA_ADD(onedp,q3,-dpvec(i,j-loindex(i)+1),q1,q3)
-                    omega(2,j) = epsilon*gauss_random(zerodp,dble(2.0))
-                end do 
-            end do
-            firststep = .not.firststep
-            call ga_sync()
-            beta(iter) = Sqrt(GA_DDOT(q3,q3))
-        end if
-        call system_clock(tend,tcount,tmx)
-        if(myid.eq.0) then
-            if(northog.gt.0) then
-                write(unit=OUTFILE,fmt=1000)loindex(1),roindex(1),1.*(tend-iterend)/tcount
-            else
-                write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
+            if(minval(loindex,mask=loindex.gt.0).gt.1) then
+                northog = northog + 1
+                loindex(northog) = one
+                roindex(northog) = one
             end if
-            write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
         end if
-        iterend = tend
-        1000 format(3x,' - Perform Partial Orthog. ',i4,' - ',i4,':  ',f14.3,' secs.')
-        1001 format(3x,' - No re-orthogonalization Required:     ',f14.3,' secs.')
-        1002 format(3x,'Time to complete iteration:              ',f14.3,' secs.'/)
-    end subroutine partial_orthog		       
-    
-    subroutine make_restart(iter)!Dumps alpha and beta coefficents to dump.dat
-        use progdata
-        use filedata, only: outdir,OUTFILE,RESTARTFILE,QRESTART
-        implicit none
+    end if
+    if(northog.gt.0) then!If partial orthogonalization is necessary...
+        do i = 1,northog
+            do j = loindex(i),roindex(i)
+                call read_ga(q1,ARCHIVE,j)
+                call ga_sync()
+                dpvec(i,j-loindex(i)+1) = GA_DDOT(q3,q1)
+            end do
+        end do
+        do i = 1,northog
+            do j = loindex(i),roindex(i)
+                call read_ga(q1,ARCHIVE,j)
+                call ga_sync()
+                call GA_ADD(onedp,q3,-dpvec(i,j-loindex(i)+1),q1,q3)
+                omega(2,j) = epsilon*gauss_random(zerodp,dble(2.0))
+            end do 
+        end do
+        firststep = .not.firststep
+        call ga_sync()
+        beta(iter) = Sqrt(GA_DDOT(q3,q3))
+    end if
+    call system_clock(tend,tcount,tmx)
+    if(myid.eq.0) then
+        if(northog.gt.0) then
+            write(unit=OUTFILE,fmt=1000)loindex(1),roindex(1),1.*(tend-iterend)/tcount
+        else
+            write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
+        end if
+        write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
+    end if
+    iterend = tend
+    1000 format(3x,' - Perform Partial Orthog. ',i4,' - ',i4,':  ',f14.3,' secs.')
+    1001 format(3x,' - No re-orthogonalization Required:     ',f14.3,' secs.')
+    1002 format(3x,'Time to complete iteration:              ',f14.3,' secs.'/)
+end subroutine partial_orthog		       
+
+subroutine make_restart(iter)!Dumps alpha and beta coefficents to dump.dat
+    use progdata
+    use filedata, only: outdir,OUTFILE,RESTARTFILE,QRESTART
+    implicit none
 #include 'global.fh'
 #include 'mafdecls.fh'
-        integer*8,intent(in):: iter
-        integer*8:: rlen,tcount,tmx
-        integer*8:: istat,ireq
-        character*4::procindex
-        call system_clock(totend,tcount,tmx)
-        write(procindex,'(i4)')myid
-        procindex = adjustl(procindex)
-        if(myid.eq.0) then
-            write(unit=OUTFILE,fmt='(a)')'  - Lanczos Iterations Completed - '
-            write(unit=OUTFILE,fmt=1003)1.*(totend-totstart)/tcount
-            open(unit=RESTARTFILE,file='restart.log',status='replace')
-            rewind(unit=RESTARTFILE)
-            write(unit=RESTARTFILE,fmt='(a)')' TOTAL NUMBER OF ITERATIONS IN FILE'
-            write(unit=RESTARTFILE,fmt='(i5)')iter
-            write(unit=RESTARTFILE,fmt='(a)')' ITERATION NUMBER TO RESTART FROM'
-            write(unit=RESTARTFILE,fmt='(i5)')iter
-            write(unit=RESTARTFILE,fmt='(a)')' ALPHA COEFFICIENTS -- diagonal T matrix elements'
-            write(unit=RESTARTFILE,fmt=*)alpha(1:iter)
-            write(unit=RESTARTFILE,fmt='(a)')' BETA COEFFICIENTS -- off-diagonal T matrix elements'
-            write(unit=RESTARTFILE,fmt=*)beta(0:iter)
-            if(orthog) then
-                write(unit=RESTARTFILE,fmt='(a)')' OMEGA(1) -- ORTHOGONALITY INFORMATION'
-                write(unit=RESTARTFILE,fmt=1002)omega(1,0:iter)
-                write(unit=RESTARTFILE,fmt='(a)')' OMEGA(2) -- ORTHOGONALITY INFORMATION'
-                write(unit=RESTARTFILE,fmt=1002)omega(2,0:iter)
-            end if
+    integer*8,intent(in):: iter
+    integer*8:: rlen,tcount,tmx
+    integer*8:: istat,ireq
+    character*4::procindex
+    call system_clock(totend,tcount,tmx)
+    write(procindex,'(i4)')myid
+    procindex = adjustl(procindex)
+    if(myid.eq.0) then
+        write(unit=OUTFILE,fmt='(a)')'  - Lanczos Iterations Completed - '
+        write(unit=OUTFILE,fmt=1003)1.*(totend-totstart)/tcount
+        open(unit=RESTARTFILE,file='restart.log',status='replace')
+        rewind(unit=RESTARTFILE)
+        write(unit=RESTARTFILE,fmt='(a)')' TOTAL NUMBER OF ITERATIONS IN FILE'
+        write(unit=RESTARTFILE,fmt='(i5)')iter
+        write(unit=RESTARTFILE,fmt='(a)')' ITERATION NUMBER TO RESTART FROM'
+        write(unit=RESTARTFILE,fmt='(i5)')iter
+        write(unit=RESTARTFILE,fmt='(a)')' ALPHA COEFFICIENTS -- diagonal T matrix elements'
+        write(unit=RESTARTFILE,fmt=*)alpha(1:iter)
+        write(unit=RESTARTFILE,fmt='(a)')' BETA COEFFICIENTS -- off-diagonal T matrix elements'
+        write(unit=RESTARTFILE,fmt=*)beta(0:iter)
+        if(orthog) then
+            write(unit=RESTARTFILE,fmt='(a)')' OMEGA(1) -- ORTHOGONALITY INFORMATION'
+            write(unit=RESTARTFILE,fmt=*)omega(1,0:iter)
+            write(unit=RESTARTFILE,fmt='(a)')' OMEGA(2) -- ORTHOGONALITY INFORMATION'
+            write(unit=RESTARTFILE,fmt=*)omega(2,0:iter)
         end if
-        call ga_sync()
-        rlen = vbounds(myid*nseg+nseg,2) - vbounds(myid*nseg+1,1) + 1
-        open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),access='direct', &
-             status='replace',form='unformatted',recl=8*rlen)
-        rewind(QRESTART)
-        call write_ga(q1,QRESTART,1)
-        call write_ga(q2,QRESTART,2)
-        call write_ga(q3,QRESTART,3)
-        close(QRESTART)
-        1000 format(i20,i5)
-        1001 format(4(f18.14))
-        1002 format(4(es18.10))
-        1003 format('  Time Required: ',f14.5,' secs.')
-    end subroutine make_restart
-    
-    subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
-        use progdata, only: niter,dimen,nstates,alpha,beta,totstart,totend,aomega,nmodes,AU2WAVE,AU2EV,bjiconv
-        use filedata, only: OUTFILE
-        implicit none
-        integer*8,intent(in)     :: iter
-        integer*8                :: i,tcount,ngood,tmx,itotal
-        integer*8,dimension(iter):: Tsign
-        real*8                            :: dpval,thresh
-        real*8, dimension(:,:),allocatable:: Teig
-        real*8, dimension(:),allocatable  :: T
-        real*8, dimension(iter)           :: Tvals,Tints,bji
-        write(unit=OUTFILE,fmt='(a)') ''
-        write(unit=OUTFILE,fmt='(a)') 'COMPUTED EIGENVALUES '
-        write(unit=OUTFILE,fmt='(a)') '------------------------------'
-        write(unit=OUTFILE,fmt='(a)') ''
-        allocate(Teig(iter,iter))
-        allocate(T(iter*(iter+1)/2))
-        call make_tmatrix(T,iter)
-        call compute_ritzsystem(T,iter,bji,Tvals,Teig,Tints,Tsign)
-        thresh = 0.0000
-        ngood = 1
-        T(ngood) = 1
-        do i = 2,iter
-            if(bji(i).lt.bjiconv) then
-                if(AU2WAVE*abs(Tvals(i)-Tvals(T(ngood))).lt.thresh) then
-                    Tints(T(ngood)) = Tints(T(ngood)) + Tints(i)
-                    if(bji(i).lt.bji(T(ngood))) then
-                        Tints(i) = Tints(T(ngood))
-                        T(ngood) = i
-                    end if
-                else
-                    ngood = ngood + 1
+    end if
+    call ga_sync()
+    rlen = vbounds(myid*nseg+nseg,2) - vbounds(myid*nseg+1,1) + 1
+    open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),access='direct', &
+         status='replace',form='unformatted',recl=8*rlen)
+    rewind(QRESTART)
+    call write_ga(q1,QRESTART,1)
+    call write_ga(q2,QRESTART,2)
+    call write_ga(q3,QRESTART,3)
+    close(QRESTART)
+    1003 format('  Time Required: ',f14.5,' secs.')
+end subroutine make_restart
+
+subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
+    use progdata, only: niter,dimen,nstates,alpha,beta,totstart,totend,aomega,nmodes,AU2WAVE,AU2EV,bjiconv
+    use filedata, only: OUTFILE
+    implicit none
+    integer*8,intent(in)     :: iter
+    integer*8                :: i,tcount,ngood,tmx,itotal
+    integer*8,dimension(iter):: Tsign
+    real*8                            :: dpval,thresh
+    real*8, dimension(:,:),allocatable:: Teig
+    real*8, dimension(:),allocatable  :: T
+    real*8, dimension(iter)           :: Tvals,Tints,bji
+    write(unit=OUTFILE,fmt='(a)') ''
+    write(unit=OUTFILE,fmt='(a)') 'COMPUTED EIGENVALUES '
+    write(unit=OUTFILE,fmt='(a)') '------------------------------'
+    write(unit=OUTFILE,fmt='(a)') ''
+    allocate(Teig(iter,iter))
+    allocate(T(iter*(iter+1)/2))
+    call make_tmatrix(T,iter)
+    call compute_ritzsystem(T,iter,bji,Tvals,Teig,Tints,Tsign)
+    thresh = 0.0000
+    ngood = 1
+    T(ngood) = 1
+    do i = 2,iter
+        if(bji(i).lt.bjiconv) then
+            if(AU2WAVE*abs(Tvals(i)-Tvals(T(ngood))).lt.thresh) then
+                Tints(T(ngood)) = Tints(T(ngood)) + Tints(i)
+                if(bji(i).lt.bji(T(ngood))) then
+                    Tints(i) = Tints(T(ngood))
                     T(ngood) = i
                 end if
+            else
+                ngood = ngood + 1
+                T(ngood) = i
             end if
-        end do
-        dpval = 0d0
-        do i = 1,nmodes
-         dpval = dpval + aomega(i)*0.5
-        end do
-        write(unit=OUTFILE,fmt=1001)dpval*AU2WAVE
-        write(unit=OUTFILE,fmt=1002)Tvals(T(1))*AU2WAVE
-        dpval = 0
-        do i = 1,ngood
-         if(Tints(T(i)).gt.dpval)dpval=Tints(T(i))
-        end do
-        write(unit=OUTFILE,fmt=1003)dpval
-        write(unit=OUTFILE,fmt='(a)')''
-        write(unit=OUTFILE,fmt=1004)
-        do i = 1,ngood
-            write(unit=OUTFILE,fmt=1005)i,int(T(i)),(Tvals(T(i))-Tvals(T(1)))*AU2WAVE,(Tvals(T(i))-Tvals(1))*AU2EV, &
-                                        bji(T(i)),Tints(T(i))/dpval
-        end do
-        call system_clock(totstart,tcount,tmx)
-        write(unit=OUTFILE,fmt='(a)') ' '
-        write(unit=OUTFILE,fmt='(a)') '   All requested eigenvalues computed.'
-        write(unit=OUTFILE,fmt=1000)1.*(totstart-totend)/tcount
-        deallocate(T)
-        deallocate(Teig)
-        1000 format('  Time Required: ',f14.5,' secs.')
-        1001 format('  ZPVE from nadvibs.in (reference state): ',f12.4,' cm-1')
-        1002 format('  FIRST eigenvalue:                       ',f12.4,' cm-1')
-        1003 format('  Intensity Factor (MAX Intensity):       ',f12.8)
-        1004 format(' Root  Index     E(cm-1)       E(eV)     Convergence   Intensity')
-        1005 format(i4,'  ',i4,'  ',f13.5,'  ',f10.5,'  ',es12.4,'  ',f8.4)
-    end subroutine compute_eigenvalues
-    
-    subroutine print_footer()
-        use filedata, only: OUTFILE
-        write(unit=OUTFILE,fmt='(a)') ' '
-        write(unit=OUTFILE,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
-        close(unit=OUTFILE)
-    end subroutine print_footer
-    
-    !This subroutine computes the eigenvectors of the hamiltonian matrix.  It then determines diagnostic
-    !information about the roots, as well as dot products useful in spin-orbit computations
-    subroutine identify_roots(iter)
-        use progdata, only: myid,dimen,nstates,nmodes,AU2WAVE,AU2EV,bjiconv,zerodp,idroots, &
-                            q1,q2,q3,vbounds,nseg,soroots,lo,hi
-        use filedata, only: outdir,SOINFO,ROOTINFO,ARCHIVE,EIGVECS
-        implicit none
+        end if
+    end do
+    dpval = 0d0
+    do i = 1,nmodes
+     dpval = dpval + aomega(i)*0.5
+    end do
+    write(unit=OUTFILE,fmt=1001)dpval*AU2WAVE
+    write(unit=OUTFILE,fmt=1002)Tvals(T(1))*AU2WAVE
+    dpval = 0
+    do i = 1,ngood
+     if(Tints(T(i)).gt.dpval)dpval=Tints(T(i))
+    end do
+    write(unit=OUTFILE,fmt=1003)dpval
+    write(unit=OUTFILE,fmt='(a)')''
+    write(unit=OUTFILE,fmt=1004)
+    do i = 1,ngood
+        write(unit=OUTFILE,fmt=1005)i,int(T(i)),(Tvals(T(i))-Tvals(T(1)))*AU2WAVE,(Tvals(T(i))-Tvals(1))*AU2EV, &
+                                    bji(T(i)),Tints(T(i))/dpval
+    end do
+    call system_clock(totstart,tcount,tmx)
+    write(unit=OUTFILE,fmt='(a)') ' '
+    write(unit=OUTFILE,fmt='(a)') '   All requested eigenvalues computed.'
+    write(unit=OUTFILE,fmt=1000)1.*(totstart-totend)/tcount
+    deallocate(T)
+    deallocate(Teig)
+    1000 format('  Time Required: ',f14.5,' secs.')
+    1001 format('  ZPVE from nadvibs.in (reference state): ',f12.4,' cm-1')
+    1002 format('  FIRST eigenvalue:                       ',f12.4,' cm-1')
+    1003 format('  Intensity Factor (MAX Intensity):       ',f12.8)
+    1004 format(' Root  Index     E(cm-1)       E(eV)     Convergence   Intensity')
+    1005 format(i4,'  ',i4,'  ',f13.5,'  ',f10.5,'  ',es12.4,'  ',f8.4)
+end subroutine compute_eigenvalues
+
+subroutine print_footer()
+    use filedata, only: OUTFILE
+    write(unit=OUTFILE,fmt='(a)') ' '
+    write(unit=OUTFILE,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
+    close(unit=OUTFILE)
+end subroutine print_footer
+
+!This subroutine computes the eigenvectors of the hamiltonian matrix.  It then determines diagnostic
+!information about the roots, as well as dot products useful in spin-orbit computations
+subroutine identify_roots(iter)
+    use progdata, only: myid,dimen,nstates,nmodes,AU2WAVE,AU2EV,bjiconv,zerodp,idroots, &
+                        q1,q2,q3,vbounds,nseg,soroots,lo,hi
+    use filedata, only: outdir,SOINFO,ROOTINFO,ARCHIVE,EIGVECS
+    implicit none
 #include 'global.fh'
-        integer*8,intent(in)          :: iter
-        integer*8                     :: i,j,k,l,counter,nroots
-        integer*8,dimension(1)        :: ld
-        integer*8,dimension(2)        :: mxval,alo,ahi,blo,bhi
-        integer*8,dimension(nmodes)   :: barray
-        integer*8,dimension(2*idroots):: cindex
-        integer*8,dimension(iter)     :: Tsign
-        real*8,dimension(iter)           :: Tvals,Tints,bji
-        real*8,dimension(2*nstates)      :: dp
-        real*8,dimension(idroots)        :: cmag,cphase
-        real*8,dimension(:),allocatable  :: T
-        real*8,dimension(:,:),allocatable:: Tvecs
-        real*8                           :: dpval,intfactor
-        character*4:: procindex
-        allocate(T(iter*(iter+1)/2))
-        allocate(Tvecs(iter,iter))
-        nroots = max(idroots,soroots)
-        write(procindex,'(i4)')myid
-        procindex = adjustl(procindex)
-        ld(1) = nstates 
-        if(nroots.gt.0.and.myid.eq.0)then
-            open(unit=ROOTINFO,file='rootinfo.dat',status='replace')
-            rewind(unit=ROOTINFO)
-        end if
-        if(soroots.gt.0)then
-            if(myid.eq.0)then
-                open(unit=SOINFO,file='sodata.in',status='replace')
-                rewind(unit=SOINFO)
-            end if
-            open(unit=EIGVECS,file=trim(adjustl(outdir))//'nadvibs.37.'//trim(procindex),access='direct', &
-                status='replace',form='unformatted',recl=8*(hi(1)-lo(1)+1))
-            rewind(EIGVECS)
-        end if
-        call make_tmatrix(T,iter)
-        call compute_ritzsystem(T,iter,bji,Tvals,Tvecs,Tints,Tsign)
-        intfactor = 0
-        do i = 1,nroots
-            if(Tints(i).gt.intfactor)intfactor=Tints(i)
-        end do
-        if(myid.eq.0) then
-            write(unit=ROOTINFO,fmt=1000)nroots
-            if(soroots.gt.0) then
-                write(unit=SOINFO,fmt=1001)soroots
-                write(unit=SOINFO,fmt=1002)
-                do i = 1,soroots
-                    write(unit=SOINFO,fmt=1003)i,Tvals(i)*AU2EV,Sqrt(Tints(i)/intfactor)*Tsign(i)
-                end do
-                if(nstates.eq.2)write(unit=SOINFO,fmt=1004)
-                if(nstates.eq.3)write(unit=SOINFO,fmt=1005)
-            end if
-        end if
-        call ga_sync()
-        !Compute Eigenvectors
-        do i = 1,nroots
-            call GA_ZERO(q1)
-            dpval = 1.D0
-            do k = 1,iter
-                call read_ga(q2,ARCHIVE,k)
-                call GA_ADD(dpval,q1,Tvecs(k,i),q2,q1)
-            end do
-            if(i.le.soroots)call write_ga(q1,EIGVECS,i)
-            call ga_sync()
-            if(myid.eq.0)write(unit=ROOTINFO,fmt=1006)i
-            !Analyze Eigenvectors
-                if(myid.eq.0) then
-                    write(unit=ROOTINFO,fmt='(a)')' '
-                    write(unit=ROOTINFO,fmt=1007)i
-                    write(unit=ROOTINFO,fmt=1008)Tvals(i)*AU2WAVE,Tvals(i)*AU2EV,Tints(i)/intfactor
-                end if
-                call GA_ELEM_MULTIPLY(q1,q1,q2)
-                do k = 1,5
-                    call NGA_SELECT_ELEM(q2,'max',dpval,mxval)     
-                    call NGA_GET(q1,mxval,mxval,cphase(k:k),ld)
-                    cmag(k)       = dpval
-                    cphase(k)     = sign(1.,cphase(k))
-                    cindex(2*k-1) = mxval(1)
-                    cindex(2*k)   = mxval(2)
-                    call GA_FILL_PATCH(q2,mxval(1),mxval(1),mxval(2),mxval(2),zerodp)
-                end do
-                dpval = 0.
-                call ga_sync()
-                do k = 1,nstates
-                    dp(k) = GA_DDOT_PATCH(q1,'N',1,dimen,k,k,q1,'N',1,dimen,k,k)
-                    dpval = dpval + dp(k)
-                end do
-                do k = 1,nstates
-                    dp(k) = 100.*abs(dp(k)/dpval)
-                end do
-                if(myid.eq.0) then
-                    do j = 1,5
-                        call get_barray(cindex(2*j-1),barray)
-                        do k = 1,nmodes
-                            barray(k) = barray(k) - 1
-                        end do
-                        write(unit=ROOTINFO,fmt=1009)cindex(2*j),cindex(2*j-1),int(cphase(j)),cmag(j)
-                        write(unit=ROOTINFO,fmt=1010)barray
-                    end do
-                    write(unit=ROOTINFO,fmt='(a)')' '
-                    if(nstates.eq.2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
-                    if(nstates.eq.3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
-                    if(nstates.eq.4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
-                end if
-                if(myid.eq.0) write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
-            !Compute spin-orbit parameters, if requested
-                if(i.le.soroots)then
-                    do j = 1,i-1
-                        counter = 0
-                        call read_ga(q2,EIGVECS,j)
-                        do k = 1,nstates
-                            do l = 1,nstates
-                                if(k.ne.l) then
-                                    counter = counter + 1
-                                    call GA_COPY_PATCH('N',q1,1,dimen,k,k,q3,1,dimen,l,l)
-                                    call ga_sync()
-                                    dp(counter) = GA_DDOT_PATCH(q3,'N',1,dimen,l,l,q2,'N',1,dimen,l,l)
-                                end if
-                            end do
-                        end do
-                        call ga_sync()
-                        if(myid.eq.0) then
-                            if(nstates.eq.2)write(unit=SOINFO,fmt=1013)i,j,dp(1),dp(2)
-                            if(nstates.eq.3)write(unit=SOINFO,fmt=1014)i,j,dp(1),dp(2),dp(3),i,j,dp(4),dp(5),dp(6)
-                        end if
-                    end do
-                end if
-        end do
-        if(myid.eq.0) then
-            if(soroots.gt.0) close(unit=SOINFO)
-            write(unit=ROOTINFO,fmt='(a)') ' '
-            write(unit=ROOTINFO,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
-            close(unit=ROOTINFO)
-        end if
-        if(soroots.gt.0)close(EIGVECS,status='delete')
-        call ga_sync()
-        deallocate(T)
-        deallocate(Tvecs)
-        1000 format(' Summary for computing ',i4,' eigenvectors corresponding to the lowest eigenvalues')
-        1001 format(i5)
-        1002 format(' Root   Energy (eV)      Sqrt(Int.)*sign')
-        1003 format(i5,2x,es15.8,2x,es15.8)
-        1004 format(' R(i)  R(j)   [S1(i)S2(j)]   [S2(i)S1(j)]')
-        1005 format(' R(i)  R(j)   [S1(i)S2(j)]   [S1(i)S3(j)]  [S2(i)S1(j)]', &
-                   /' R(i)  R(j)   [S2(i)S3(j)]   [S3(i)S1(j)]  [S3(i)S2(j)]')
-        1006 format(' Eigenvector ',i4,' has been computed...')
-        1015 format('     --- Error in eigenvalue check: ',es14.6,' cm-1')
-        1007 format(' ************ ROOT ',i4,' *************')
-        1008 format(' Energy: ',f9.2,' cm-1, ',f9.5,' eV   Intensity: ',f6.4/)
-        1009 format(' State vector: ',i2,' | Index: ',i12,' Phase: ',i2,' | Magnitude^2: ',f8.6)
-        1010 format(' v(i): ',25(i3))
-        1011 format(' Percent State (1,2): (',f6.2,' %, ',f6.2,' %)')
-        1012 format(' Percent State (1,2,3): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
-        1016 format(' Percent State (1,2,3,4): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
-        1013 format(i5,1x,i5,2x,es14.6,1x,es14.6)
-        1014 format(i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6,/i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6)
-    end subroutine identify_roots
-    
-    subroutine release_memory()
-        use progdata
-        use filedata
-        implicit none
-#include 'global.fh'
-        logical::lstat
-        integer*8::istat
-        if(allocated(scr1))deallocate(scr1)
-        deallocate(scr2)
-        deallocate(concoef)
-        deallocate(nzindx)
-        deallocate(nzblks)
-        deallocate(nzcoef)
-        deallocate(alpha)
-        deallocate(beta)
-        deallocate(aomega)
-        deallocate(bomega)
-        deallocate(omega)
-        deallocate(nfunc)
-        deallocate(shft)
-        deallocate(statew)
-        deallocate(loindex)
-        deallocate(roindex)
-        if(allocated(dmap))deallocate(dmap)
-        if(allocated(dordr))deallocate(dordr)
-        deallocate(bmax)
-        deallocate(nsteps)
-        deallocate(stype)
-        deallocate(basind)
-        deallocate(basdif)
-        deallocate(bstart)
-        deallocate(rcshft)
-        deallocate(nelems)
-        if(savevecs)close(ARCHIVE)
+    integer*8,intent(in)          :: iter
+    integer*8                     :: i,j,k,l,counter,nroots
+    integer*8,dimension(1)        :: ld
+    integer*8,dimension(2)        :: mxval,alo,ahi,blo,bhi
+    integer*8,dimension(nmodes)   :: barray
+    integer*8,dimension(2*idroots):: cindex
+    integer*8,dimension(iter)     :: Tsign
+    real*8,dimension(iter)           :: Tvals,Tints,bji
+    real*8,dimension(2*nstates)      :: dp
+    real*8,dimension(idroots)        :: cmag,cphase
+    real*8,dimension(:),allocatable  :: T
+    real*8,dimension(:,:),allocatable:: Tvecs
+    real*8                           :: dpval,intfactor
+    character*4:: procindex
+    allocate(T(iter*(iter+1)/2))
+    allocate(Tvecs(iter,iter))
+    nroots = max(idroots,soroots)
+    write(procindex,'(i4)')myid
+    procindex = adjustl(procindex)
+    ld(1) = nstates 
+    if(nroots.gt.0.and.myid.eq.0)then
+        open(unit=ROOTINFO,file='rootinfo.dat',status='replace')
+        rewind(unit=ROOTINFO)
+    end if
+    if(soroots.gt.0)then
         if(myid.eq.0)then
-            close(unit=SCRFILE,status='delete')
-            close(unit=RESTARTFILE)
+            open(unit=SOINFO,file='sodata.in',status='replace')
+            rewind(unit=SOINFO)
         end if
-        lstat = GA_DESTROY(q1)
-        if(.not.lstat)print *,'ERROR in GA_DESTROY(q1), ID=',myid
-        lstat = GA_DESTROY(q2)
-        if(.not.lstat)print *,'ERROR in GA_DESTROY(q2), ID=',myid
-        lstat = GA_DESTROY(q3) 
-        if(.not.lstat)print *,'ERROR in GA_DESTROY(q3), ID=',myid
+        open(unit=EIGVECS,file=trim(adjustl(outdir))//'nadvibs.37.'//trim(procindex),access='direct', &
+            status='replace',form='unformatted',recl=8*(hi(1)-lo(1)+1))
+        rewind(EIGVECS)
+    end if
+    call make_tmatrix(T,iter)
+    call compute_ritzsystem(T,iter,bji,Tvals,Tvecs,Tints,Tsign)
+    intfactor = 0
+    do i = 1,nroots
+        if(Tints(i).gt.intfactor)intfactor=Tints(i)
+    end do
+    if(myid.eq.0) then
+        write(unit=ROOTINFO,fmt=1000)nroots
+        if(soroots.gt.0) then
+            write(unit=SOINFO,fmt=1001)soroots
+            write(unit=SOINFO,fmt=1002)
+            do i = 1,soroots
+                write(unit=SOINFO,fmt=1003)i,Tvals(i)*AU2EV,Sqrt(Tints(i)/intfactor)*Tsign(i)
+            end do
+            if(nstates.eq.2)write(unit=SOINFO,fmt=1004)
+            if(nstates.eq.3)write(unit=SOINFO,fmt=1005)
+        end if
+    end if
+    call ga_sync()
+    !Compute Eigenvectors
+    do i = 1,nroots
+        call GA_ZERO(q1)
+        dpval = 1.D0
+        do k = 1,iter
+            call read_ga(q2,ARCHIVE,k)
+            call GA_ADD(dpval,q1,Tvecs(k,i),q2,q1)
+        end do
+        if(i.le.soroots)call write_ga(q1,EIGVECS,i)
         call ga_sync()
-    end subroutine release_memory
+        if(myid.eq.0)write(unit=ROOTINFO,fmt=1006)i
+        !Analyze Eigenvectors
+            if(myid.eq.0) then
+                write(unit=ROOTINFO,fmt='(a)')' '
+                write(unit=ROOTINFO,fmt=1007)i
+                write(unit=ROOTINFO,fmt=1008)Tvals(i)*AU2WAVE,Tvals(i)*AU2EV,Tints(i)/intfactor
+            end if
+            call GA_ELEM_MULTIPLY(q1,q1,q2)
+            do k = 1,5
+                call NGA_SELECT_ELEM(q2,'max',dpval,mxval)     
+                call NGA_GET(q1,mxval,mxval,cphase(k:k),ld)
+                cmag(k)       = dpval
+                cphase(k)     = sign(1.,cphase(k))
+                cindex(2*k-1) = mxval(1)
+                cindex(2*k)   = mxval(2)
+                call GA_FILL_PATCH(q2,mxval(1),mxval(1),mxval(2),mxval(2),zerodp)
+            end do
+            dpval = 0.
+            call ga_sync()
+            do k = 1,nstates
+                dp(k) = GA_DDOT_PATCH(q1,'N',1,dimen,k,k,q1,'N',1,dimen,k,k)
+                dpval = dpval + dp(k)
+            end do
+            do k = 1,nstates
+                dp(k) = 100.*abs(dp(k)/dpval)
+            end do
+            if(myid.eq.0) then
+                do j = 1,5
+                    call get_barray(cindex(2*j-1),barray)
+                    do k = 1,nmodes
+                        barray(k) = barray(k) - 1
+                    end do
+                    write(unit=ROOTINFO,fmt=1009)cindex(2*j),cindex(2*j-1),int(cphase(j)),cmag(j)
+                    write(unit=ROOTINFO,fmt=1010)barray
+                end do
+                write(unit=ROOTINFO,fmt='(a)')' '
+                if(nstates.eq.2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
+                if(nstates.eq.3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
+                if(nstates.eq.4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
+            end if
+            if(myid.eq.0) write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
+        !Compute spin-orbit parameters, if requested
+            if(i.le.soroots)then
+                do j = 1,i-1
+                    counter = 0
+                    call read_ga(q2,EIGVECS,j)
+                    do k = 1,nstates
+                        do l = 1,nstates
+                            if(k.ne.l) then
+                                counter = counter + 1
+                                call GA_COPY_PATCH('N',q1,1,dimen,k,k,q3,1,dimen,l,l)
+                                call ga_sync()
+                                dp(counter) = GA_DDOT_PATCH(q3,'N',1,dimen,l,l,q2,'N',1,dimen,l,l)
+                            end if
+                        end do
+                    end do
+                    call ga_sync()
+                    if(myid.eq.0) then
+                        if(nstates.eq.2)write(unit=SOINFO,fmt=1013)i,j,dp(1),dp(2)
+                        if(nstates.eq.3)write(unit=SOINFO,fmt=1014)i,j,dp(1),dp(2),dp(3),i,j,dp(4),dp(5),dp(6)
+                    end if
+                end do
+            end if
+    end do
+    if(myid.eq.0) then
+        if(soroots.gt.0) close(unit=SOINFO)
+        write(unit=ROOTINFO,fmt='(a)') ' '
+        write(unit=ROOTINFO,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
+        close(unit=ROOTINFO)
+    end if
+    if(soroots.gt.0)close(EIGVECS,status='delete')
+    call ga_sync()
+    deallocate(T)
+    deallocate(Tvecs)
+    1000 format(' Summary for computing ',i4,' eigenvectors corresponding to the lowest eigenvalues')
+    1001 format(i5)
+    1002 format(' Root   Energy (eV)      Sqrt(Int.)*sign')
+    1003 format(i5,2x,es15.8,2x,es15.8)
+    1004 format(' R(i)  R(j)   [S1(i)S2(j)]   [S2(i)S1(j)]')
+    1005 format(' R(i)  R(j)   [S1(i)S2(j)]   [S1(i)S3(j)]  [S2(i)S1(j)]', &
+               /' R(i)  R(j)   [S2(i)S3(j)]   [S3(i)S1(j)]  [S3(i)S2(j)]')
+    1006 format(' Eigenvector ',i4,' has been computed...')
+    1015 format('     --- Error in eigenvalue check: ',es14.6,' cm-1')
+    1007 format(' ************ ROOT ',i4,' *************')
+    1008 format(' Energy: ',f9.2,' cm-1, ',f9.5,' eV   Intensity: ',f6.4/)
+    1009 format(' State vector: ',i2,' | Index: ',i12,' Phase: ',i2,' | Magnitude^2: ',f8.6)
+    1010 format(' v(i): ',25(i3))
+    1011 format(' Percent State (1,2): (',f6.2,' %, ',f6.2,' %)')
+    1012 format(' Percent State (1,2,3): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
+    1016 format(' Percent State (1,2,3,4): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
+    1013 format(i5,1x,i5,2x,es14.6,1x,es14.6)
+    1014 format(i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6,/i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6)
+end subroutine identify_roots
+
+subroutine release_memory()
+    use progdata
+    use filedata
+    implicit none
+#include 'global.fh'
+    logical::lstat
+    integer*8::istat
+    if(allocated(scr1))deallocate(scr1)
+    deallocate(scr2)
+    deallocate(concoef)
+    deallocate(nzindx)
+    deallocate(nzblks)
+    deallocate(nzcoef)
+    deallocate(alpha)
+    deallocate(beta)
+    deallocate(aomega)
+    deallocate(bomega)
+    deallocate(omega)
+    deallocate(nfunc)
+    deallocate(shft)
+    deallocate(statew)
+    deallocate(loindex)
+    deallocate(roindex)
+    if(allocated(dmap))deallocate(dmap)
+    if(allocated(dordr))deallocate(dordr)
+    deallocate(bmax)
+    deallocate(nsteps)
+    deallocate(stype)
+    deallocate(basind)
+    deallocate(basdif)
+    deallocate(bstart)
+    deallocate(rcshft)
+    deallocate(nelems)
+    if(savevecs)close(ARCHIVE)
+    if(myid.eq.0)then
+        close(unit=SCRFILE,status='delete')
+        close(unit=RESTARTFILE)
+    end if
+    lstat = GA_DESTROY(q1)
+    if(.not.lstat)print *,'ERROR in GA_DESTROY(q1), ID=',myid
+    lstat = GA_DESTROY(q2)
+    if(.not.lstat)print *,'ERROR in GA_DESTROY(q2), ID=',myid
+    lstat = GA_DESTROY(q3) 
+    if(.not.lstat)print *,'ERROR in GA_DESTROY(q3), ID=',myid
+    call ga_sync()
+end subroutine release_memory
 !------------------------------------ End ------------------------------------
 
 !------------ Secondary subroutines listed in alphabetical order -------------
-    subroutine compute_allIndex()
-        use progdata, only: myid,nseg,nproc,dimen,nmodes,nfunc,vbounds,ordr,nztrms,nzindx,lo,hi,ndiag,dordr,dmap, &
-                            basind,basdif,bstart,rcshft,nelems,bmax,nsteps,zero,one,two,shft,nstblks,stype,nalltrms
-        implicit none
-        integer*8                             :: i,j,k,l,m,n,p,indx,nindx,ioff1,ioff2
-        integer*8                             :: myrange,nbat,stride,ndir,ntot
-        integer*8                             :: cindx,rindx,cshft,rshft
-        integer*8                             :: ibat,ival
-        integer*8                             :: get_batch
-        integer*8,dimension(nmodes)           :: bc,br
-        integer*8,dimension(ordr)             :: sdir,sdif,inds,icnt
-        integer*8,dimension(ordr+1)           :: bcnt
-        integer*8,dimension(ordr,sum(nztrms)) :: smax
-        integer*8,dimension(5000)             :: buf1,buf2
-        logical                             :: diagterm
-        nbat = nproc*nseg
-        ndiag = 0
-        myrange = hi(1) - lo(1) + 1
-        !Set the batch independent max parameters bmax,bshft
-        allocate(nalltrms(nbat))
-        allocate(nsteps(sum(nztrms)))
-        allocate(bmax(ordr,sum(nztrms)))
-        call setintmatrix(bmax,ordr,sum(nztrms),one)
-        ioff1 = 0!Determine how many matrix element types there are per potential term
-        do i = 1,ordr
-            do j = 1,nztrms(i)
-                ndir = 1
-                do k = 1,i
-                    indx  = nzindx(2*k-1,ioff1+j)
-                    nindx = nzindx(2*k,ioff1+j)
-                    smax(k,ioff1+j) = nindx
-                    do 
-                        if(smax(k,ioff1+j)<=nfunc(indx)-1) exit
-                        smax(k,ioff1+j) = smax(k,ioff1+j) - 2
-                    end do
-                    if(smax(k,ioff1+j).lt.0)ndir = 0
-                    ndir = ndir*(smax(k,ioff1+j)+1)
-                    if(k==1)then
-                        ival = nmodes
-                    else
-                        ival = nzindx(2*k-3,ioff1+j)-1
-                    end if
-                    do l = indx+1,ival
-                        bmax(k,ioff1+j) = bmax(k,ioff1+j)*nfunc(l)
-                    end do
+subroutine compute_allIndex()
+    use progdata, only: myid,nseg,nproc,dimen,nmodes,nfunc,vbounds,ordr,nztrms,nzindx,lo,hi,ndiag,dordr,dmap, &
+                        basind,basdif,bstart,rcshft,nelems,bmax,nsteps,zero,one,two,shft,nstblks,stype,nalltrms
+    implicit none
+    integer*8                             :: i,j,k,l,m,n,p,indx,nindx,ioff1,ioff2
+    integer*8                             :: myrange,nbat,stride,ndir,ntot
+    integer*8                             :: cindx,rindx,cshft,rshft
+    integer*8                             :: ibat,ival
+    integer*8                             :: get_batch
+    integer*8,dimension(nmodes)           :: bc,br
+    integer*8,dimension(ordr)             :: sdir,sdif,inds,icnt
+    integer*8,dimension(ordr+1)           :: bcnt
+    integer*8,dimension(ordr,sum(nztrms)) :: smax
+    integer*8,dimension(5000)             :: buf1,buf2
+    logical                             :: diagterm
+    nbat = nproc*nseg
+    ndiag = 0
+    myrange = hi(1) - lo(1) + 1
+    !Set the batch independent max parameters bmax,bshft
+    allocate(nalltrms(nbat))
+    allocate(nsteps(sum(nztrms)))
+    allocate(bmax(ordr,sum(nztrms)))
+    call setintmatrix(bmax,ordr,sum(nztrms),one)
+    ioff1 = 0!Determine how many matrix element types there are per potential term
+    do i = 1,ordr
+        do j = 1,nztrms(i)
+            ndir = 1
+            do k = 1,i
+                indx  = nzindx(2*k-1,ioff1+j)
+                nindx = nzindx(2*k,ioff1+j)
+                smax(k,ioff1+j) = nindx
+                do 
+                    if(smax(k,ioff1+j)<=nfunc(indx)-1) exit
+                    smax(k,ioff1+j) = smax(k,ioff1+j) - 2
                 end do
-                diagterm = .true.
-                do k = 1,i
-                    if(mod(smax(k,ioff1+j),2).ne.0)then
-                        diagterm = .false.
-                        EXIT
-                    end if
-                end do
-                if(diagterm)then
-                    ndiag        = ndiag + 1
-                    buf1(ndiag)  = i
-                    buf2(ndiag)  = ioff1+j
+                if(smax(k,ioff1+j).lt.0)ndir = 0
+                ndir = ndir*(smax(k,ioff1+j)+1)
+                if(k==1)then
+                    ival = nmodes
+                else
+                    ival = nzindx(2*k-3,ioff1+j)-1
                 end if
-                nsteps(ioff1+j) = ndir
-            end do
-            ioff1 = ioff1 + nztrms(i)
-        end do
-        ntot = sum(nsteps)
-        if(ndiag>0)then!Allocate index array - for each iproc section of the Hamiltonian
-            allocate(dordr(ndiag))
-            allocate(dmap(ndiag))
-        end if
-        allocate(stype(ordr,ntot))
-        allocate(basdif(ordr,ntot))
-        allocate(nelems(ntot,nbat))
-        allocate(basind(ordr,ntot,nbat))
-        allocate(bstart(ordr,ntot,nbat))
-        allocate(rcshft(two,ntot,nbat))
-        call setintmatrix(nelems,ntot,nbat,zero)
-        do i = 1,ndiag
-            dordr(i) = buf1(i)
-            dmap(i)  = buf2(i)
-        end do
-        ioff1 = 0
-        ioff2 = 0
-        do i = 1,ordr!Loop over n-index terms
-            call setintarray(sdif,ordr,zero)
-            call setintarray(sdir,ordr,zero)
-            do j = 1,nztrms(i)!Loop over number of terms with i indices
-                do k = 1,i
-                    sdir(k) = -smax(k,ioff1+j)
-                    inds(k) = nzindx(2*k-1,ioff1+j)
-                    icnt(k) = nzindx(2*k,ioff1+j)
+                do l = indx+1,ival
+                    bmax(k,ioff1+j) = bmax(k,ioff1+j)*nfunc(l)
                 end do
-                sdir(i) = sdir(i) - 2
-                do k = 1,nsteps(ioff1+j)
-                    l = i
-                    do
-                        if(sdir(l).lt.smax(l,ioff1+j)) exit
-                        sdir(l) = -smax(l,ioff1+j)
-                        l = l - 1
-                    end do
-                    sdir(l) = sdir(l) + 2
-                    stride = 0
-                    do l = 1,i
-                        stype(l,ioff2+k) = int(abs(sdir(l)/2.))+1
-                        basdif(l,ioff2+k) = abs(sdir(l))
-                        stride = stride + sdir(l)*shft(inds(l))
-                    end do
-                    cindx = lo(1) + stride
-                    rindx = lo(1)
-                    rshft = 1
-                    if(cindx<=-myrange.or.cindx>dimen.or.stride==0)then
-                        ibat=0
-                    else
-                        if(cindx<=zero)then
-                            rshft = rshft - (cindx-1)
-                            rindx = rindx - (cindx-1)
-                            cindx = 1
-                        end if
-                        ibat = get_batch(cindx)
-                        cshft = cindx - vbounds(ibat,1) + 1           
+            end do
+            diagterm = .true.
+            do k = 1,i
+                if(mod(smax(k,ioff1+j),2).ne.0)then
+                    diagterm = .false.
+                    EXIT
+                end if
+            end do
+            if(diagterm)then
+                ndiag        = ndiag + 1
+                buf1(ndiag)  = i
+                buf2(ndiag)  = ioff1+j
+            end if
+            nsteps(ioff1+j) = ndir
+        end do
+        ioff1 = ioff1 + nztrms(i)
+    end do
+    ntot = sum(nsteps)
+    if(ndiag>0)then!Allocate index array - for each iproc section of the Hamiltonian
+        allocate(dordr(ndiag))
+        allocate(dmap(ndiag))
+    end if
+    allocate(stype(ordr,ntot))
+    allocate(basdif(ordr,ntot))
+    allocate(nelems(ntot,nbat))
+    allocate(basind(ordr,ntot,nbat))
+    allocate(bstart(ordr,ntot,nbat))
+    allocate(rcshft(two,ntot,nbat))
+    call setintmatrix(nelems,ntot,nbat,zero)
+    do i = 1,ndiag
+        dordr(i) = buf1(i)
+        dmap(i)  = buf2(i)
+    end do
+    ioff1 = 0
+    ioff2 = 0
+    do i = 1,ordr!Loop over n-index terms
+        call setintarray(sdif,ordr,zero)
+        call setintarray(sdir,ordr,zero)
+        do j = 1,nztrms(i)!Loop over number of terms with i indices
+            do k = 1,i
+                sdir(k) = -smax(k,ioff1+j)
+                inds(k) = nzindx(2*k-1,ioff1+j)
+                icnt(k) = nzindx(2*k,ioff1+j)
+            end do
+            sdir(i) = sdir(i) - 2
+            do k = 1,nsteps(ioff1+j)
+                l = i
+                do
+                    if(sdir(l).lt.smax(l,ioff1+j)) exit
+                    sdir(l) = -smax(l,ioff1+j)
+                    l = l - 1
+                end do
+                sdir(l) = sdir(l) + 2
+                stride = 0
+                do l = 1,i
+                    stype(l,ioff2+k) = int(abs(sdir(l)/2.))+1
+                    basdif(l,ioff2+k) = abs(sdir(l))
+                    stride = stride + sdir(l)*shft(inds(l))
+                end do
+                cindx = lo(1) + stride
+                rindx = lo(1)
+                rshft = 1
+                if(cindx<=-myrange.or.cindx>dimen.or.stride==0)then
+                    ibat=0
+                else
+                    if(cindx<=zero)then
+                        rshft = rshft - (cindx-1)
+                        rindx = rindx - (cindx-1)
+                        cindx = 1
                     end if
-                    if(ibat.ne.0)then!If there are matrix elements handled by this processor
+                    ibat = get_batch(cindx)
+                    cshft = cindx - vbounds(ibat,1) + 1           
+                end if
+                if(ibat.ne.0)then!If there are matrix elements handled by this processor
+                    call get_barray(cindx,bc)
+                    call get_barray(rindx,br)
+                    do l = 1,i
+                      sdif(l) = bc(inds(l)) - br(inds(l)) - sdir(l)
+                    end do
+                    ival = dot_product(sdif,sdif)
+                    do       
+                        if(ival==0.or.rshft>myrange.or.ibat>nbat) exit
+                        cindx = cindx + 1
+                        rindx = rindx + 1
+                        rshft = rshft + 1
                         call get_barray(cindx,bc)
                         call get_barray(rindx,br)
                         do l = 1,i
-                          sdif(l) = bc(inds(l)) - br(inds(l)) - sdir(l)
+                            sdif(l) = bc(inds(l)) - br(inds(l)) - sdir(l)
                         end do
                         ival = dot_product(sdif,sdif)
-                        do       
-                            if(ival==0.or.rshft>myrange.or.ibat>nbat) exit
+                        do
+                            if(ibat>nbat) exit
+                            if(cindx<=vbounds(ibat,2)) exit
+                            ibat = ibat + 1
+                        end do
+                        if(ibat<=nbat) cshft = cindx - vbounds(ibat,1) + 1
+                    end do
+                    if(ibat<=nbat) then
+                        do l = 1,i
+                            bcnt(l) = 1
+                            if(l==1)then
+                                ival = nmodes
+                            else
+                                ival = inds(l-1)-1
+                            end if
+                            do m = inds(l)+1,ival
+                                n = 1
+                                do p = (m+1),ival 
+                                    n = n*nfunc(p)
+                                end do
+                                bcnt(l) = bcnt(l) + (bc(m)-1)*n
+                            end do
+                        end do
+                        do l = 1,i
+                            basind(l,ioff2+k,ibat) = max(bc(inds(l)),br(inds(l)))
+                            bstart(l,ioff2+k,ibat) = bcnt(l)
+                        end do
+                        rcshft(1,ioff2+k,ibat)   = cshft
+                        rcshft(2,ioff2+k,ibat)   = rshft
+                        do
+                            if(rshft>myrange.or.ibat>nbat) exit
+                            nelems(ioff2+k,ibat) = nelems(ioff2+k,ibat) + 1
+                            ! begin constructing next term
                             cindx = cindx + 1
                             rindx = rindx + 1
+                            cshft = cshft + 1
                             rshft = rshft + 1
-                            call get_barray(cindx,bc)
-                            call get_barray(rindx,br)
+                            bcnt(1) = bcnt(1) + 1
                             do l = 1,i
-                                sdif(l) = bc(inds(l)) - br(inds(l)) - sdir(l)
-                            end do
-                            ival = dot_product(sdif,sdif)
-                            do
-                                if(ibat>nbat) exit
-                                if(cindx<=vbounds(ibat,2)) exit
-                                ibat = ibat + 1
-                            end do
-                            if(ibat<=nbat) cshft = cindx - vbounds(ibat,1) + 1
-                        end do
-                        if(ibat<=nbat) then
-                            do l = 1,i
+                                if(bcnt(l)<=bmax(l,ioff1+j)) exit
                                 bcnt(l) = 1
-                                if(l==1)then
-                                    ival = nmodes
-                                else
-                                    ival = inds(l-1)-1
-                                end if
-                                do m = inds(l)+1,ival
-                                    n = 1
-                                    do p = (m+1),ival 
-                                        n = n*nfunc(p)
-                                    end do
-                                    bcnt(l) = bcnt(l) + (bc(m)-1)*n
-                                end do
-                            end do
-                            do l = 1,i
-                                basind(l,ioff2+k,ibat) = max(bc(inds(l)),br(inds(l)))
-                                bstart(l,ioff2+k,ibat) = bcnt(l)
-                            end do
-                            rcshft(1,ioff2+k,ibat)   = cshft
-                            rcshft(2,ioff2+k,ibat)   = rshft
-                            do
-                                if(rshft>myrange.or.ibat>nbat) exit
-                                nelems(ioff2+k,ibat) = nelems(ioff2+k,ibat) + 1
-                                ! begin constructing next term
-                                cindx = cindx + 1
-                                rindx = rindx + 1
-                                cshft = cshft + 1
-                                rshft = rshft + 1
-                                bcnt(1) = bcnt(1) + 1
-                                do l = 1,i
-                                    if(bcnt(l)<=bmax(l,ioff1+j)) exit
-                                    bcnt(l) = 1
-                                    bc(inds(l)) = bc(inds(l)) + 1
-                                    br(inds(l)) = br(inds(l)) + 1
-                                    ival = max(br(inds(l)),bc(inds(l)))
-                                    if(ival>nfunc(inds(l)))then
-                                        bcnt(l+1) = bcnt(l+1) + 1
-                                        ival = abs(sdir(l))
-                                        bc(inds(l)) = 1 + ival*(1+sign(one,sdir(l)))/2
-                                        br(inds(l)) = 1 + ival*(1-sign(one,sdir(l)))/2
-                                        cindx = cindx + ival*shft(inds(l))
-                                        rindx = rindx + ival*shft(inds(l))
-                                        cshft = cshft + ival*shft(inds(l))
-                                        rshft = rshft + ival*shft(inds(l))
-                                    end if
-                                end do
-                                if(cindx>vbounds(ibat,2)) then
-                                    do
-                                        if(ibat>nbat) exit
-                                        if(cindx<=vbounds(ibat,2)) exit
-                                        ibat = ibat + 1
-                                    end do
-                                    if(ibat<=nbat) then
-                                        cshft = cindx - vbounds(ibat,1) + 1
-                                        do l = 1,i
-                                            basind(l,ioff2+k,ibat) = max(bc(inds(l)),br(inds(l)))
-                                            bstart(l,ioff2+k,ibat) = bcnt(l)
-                                        end do
-                                        rcshft(1,ioff2+k,ibat) = cshft
-                                        rcshft(2,ioff2+k,ibat) = rshft
-                                    end if
+                                bc(inds(l)) = bc(inds(l)) + 1
+                                br(inds(l)) = br(inds(l)) + 1
+                                ival = max(br(inds(l)),bc(inds(l)))
+                                if(ival>nfunc(inds(l)))then
+                                    bcnt(l+1) = bcnt(l+1) + 1
+                                    ival = abs(sdir(l))
+                                    bc(inds(l)) = 1 + ival*(1+sign(one,sdir(l)))/2
+                                    br(inds(l)) = 1 + ival*(1-sign(one,sdir(l)))/2
+                                    cindx = cindx + ival*shft(inds(l))
+                                    rindx = rindx + ival*shft(inds(l))
+                                    cshft = cshft + ival*shft(inds(l))
+                                    rshft = rshft + ival*shft(inds(l))
                                 end if
                             end do
-                        end if
+                            if(cindx>vbounds(ibat,2)) then
+                                do
+                                    if(ibat>nbat) exit
+                                    if(cindx<=vbounds(ibat,2)) exit
+                                    ibat = ibat + 1
+                                end do
+                                if(ibat<=nbat) then
+                                    cshft = cindx - vbounds(ibat,1) + 1
+                                    do l = 1,i
+                                        basind(l,ioff2+k,ibat) = max(bc(inds(l)),br(inds(l)))
+                                        bstart(l,ioff2+k,ibat) = bcnt(l)
+                                    end do
+                                    rcshft(1,ioff2+k,ibat) = cshft
+                                    rcshft(2,ioff2+k,ibat) = rshft
+                                end if
+                            end if
+                        end do
                     end if
-                end do
-                ioff2 = ioff2 + nsteps(ioff1+j)
-            end do
-            ioff1 = ioff1 + nztrms(i)
-        end do
-        do i = 1,nbat
-            ival = 0
-            do j = 1,ntot
-                ival = ival + nelems(j,i)
-            end do
-            if(i>=(myid*nseg+1).and.i<=(myid*nseg+nseg))ival = ival + vbounds(i,2)-vbounds(i,1)+1
-            nalltrms(i) = ival
-        end do
-    end subroutine compute_allIndex
-    
-    !Given a tridiagonal matrix, assuming requisite lanczos vectors are on disk,
-    !compute the ritz vectors and ritz values.  The ritz vectors are writen to the
-    !file specified by RITZVECS, while the ritz values are returned in an array.  Will use the 
-    !1st n lanczos vectors from file.  The ritz vectors are written starting at vector roff+1 in the
-    !DA file RITZVECS
-    !    T:        tridiagonal array,                                                  intent(inout)
-    !    n:        dimension of T (n x n),                                             intent(in)
-    !    bji:      an array whose values indicated the convergence of an eigenvalue    intent(inout)
-    !    eigvals:  eigenvalues of T                                                    intent(inout) 
-    !    eigvecs:  eigenvectors of T                                                   intent(inout)
-    !    eigints:  intensities of eigenvalues of T                                     intent(inout)
-    !    eigsign:  sign of <0|Psi(i)>                                                  intent(inout)
-    subroutine compute_ritzsystem(T,n,bji,eigvals,eigvecs,eigints,eigsign)
-        use progdata, only: one,beta
-        implicit none
-        integer*8,intent(in)                        :: n
-        integer*8,dimension(n),intent(inout)        :: eigsign
-        real*8,dimension(n*(n+1)/2),intent(inout) :: T
-        real*8,dimension(n),intent(inout)         :: eigvals,eigints,bji
-        real*8,dimension(n,n),intent(inout)       :: eigvecs
-        real*8,dimension(5*n)                     :: tbuf
-        integer*8                                   :: i
-        call givens(n,n,n,T,tbuf,eigvals,eigvecs)
-        call setintarray(eigsign,n,one)
-        do i = 1,n!Test the beta(ji)
-            bji(i) = abs(beta(n)*eigvecs(n,i))
-            if(eigvecs(1,i).lt.0)eigsign(i)=-1
-            eigints(i) = eigvecs(1,i)*eigvecs(1,i)
-        end do
-    end subroutine compute_ritzsystem
-    
-    !Determines the machine precision
-    subroutine determine_epsilon()
-        use progdata, only: epsilon,eta
-        implicit none
-        real*8       :: ep1
-        epsilon = dble(1)
-        do
-            epsilon = epsilon/dble(2)
-            ep1 = epsilon + dble(1)
-            if(ep1==dble(1)) exit
-        end do
-        eta = epsilon**(3d0/4d0)
-    end subroutine determine_epsilon
-    
-    subroutine write_ga(ga,ga_file,recstart)
-        use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
-        implicit none
-        integer*8, intent(in)   :: ga,ga_file,recstart
-        integer*8               :: i,j,currec
-        integer*8, dimension(2) :: lo,hi
-        integer*8, dimension(1) :: ld
-        lo = (/ vbounds(myid*nseg+1,1),    1 /)
-        hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
-        ld = (/ hi(1) - lo(1) + 1 /)
-        call nga_get(ga,lo,hi,scr2,ld)
-        currec = (int(recstart)-1)*nstates + 1
-        do i = 1,nstates
-            write(ga_file,rec=currec)(scr2(j,i),j=1,ld(1))
-            currec = currec + 1
-        end do
-    end subroutine write_ga
-    
-    subroutine read_ga(ga,ga_file,recstart)
-        use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
-        implicit none
-        integer*8,intent(in)         :: ga,ga_file,recstart
-        integer*8                    :: i,j,currec
-        integer*8, dimension(2)      :: lo,hi
-        integer*8, dimension(1)      :: ld
-        real*8,parameter :: dscale = 1.
-        lo = (/ vbounds(myid*nseg+1,1),    1 /)
-        hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
-        ld = (/ hi(1) - lo(1) + 1 /)
-        currec = (int(recstart)-1)*nstates + 1
-        do i = 1,nstates
-            read(ga_file,rec=currec)(scr2(j,i),j=1,ld(1))
-            currec = currec + 1
-        end do
-        call NGA_PUT(ga,lo,hi,scr2,ld,dscale)
-    end subroutine read_ga
-    
-    !Reduce Matrix to upper triangular form
-    subroutine gauss_elim(m,n,MATIN,MATOUT)
-        implicit none
-        integer*8,intent(in):: m,n
-        real*8,dimension(m,n),intent(in)    :: MATIN
-        real*8,dimension(m,n),intent(inout) :: MATOUT
-        integer*8:: i,j,k,maxr
-        real*8:: val
-        do i = 1,m
-            do j = 1,n
-                MATOUT(i,j) = MATIN(i,j)
-            end do
-        end do
-        do i = 1,m-1
-            maxr = i
-            val = abs(MATOUT(i,i))
-            do j = i+1,m
-                if(abs(MATOUT(j,i))>val) then
-                    val = abs(MATOUT(j,i))
-                    maxr = j
                 end if
             end do
-            if(maxr.ne.i)then
-                do j = 1,n
-                    val = MATOUT(maxr,j)
-                    MATOUT(maxr,j) = MATOUT(i,j)
-                    MATOUT(i,j) = val
+            ioff2 = ioff2 + nsteps(ioff1+j)
+        end do
+        ioff1 = ioff1 + nztrms(i)
+    end do
+    do i = 1,nbat
+        ival = 0
+        do j = 1,ntot
+            ival = ival + nelems(j,i)
+        end do
+        if(i>=(myid*nseg+1).and.i<=(myid*nseg+nseg))ival = ival + vbounds(i,2)-vbounds(i,1)+1
+        nalltrms(i) = ival
+    end do
+end subroutine compute_allIndex
+
+!Given a tridiagonal matrix, assuming requisite lanczos vectors are on disk,
+!compute the ritz vectors and ritz values.  The ritz vectors are writen to the
+!file specified by RITZVECS, while the ritz values are returned in an array.  Will use the 
+!1st n lanczos vectors from file.  The ritz vectors are written starting at vector roff+1 in the
+!DA file RITZVECS
+!    T:        tridiagonal array,                                                  intent(inout)
+!    n:        dimension of T (n x n),                                             intent(in)
+!    bji:      an array whose values indicated the convergence of an eigenvalue    intent(inout)
+!    eigvals:  eigenvalues of T                                                    intent(inout) 
+!    eigvecs:  eigenvectors of T                                                   intent(inout)
+!    eigints:  intensities of eigenvalues of T                                     intent(inout)
+!    eigsign:  sign of <0|Psi(i)>                                                  intent(inout)
+subroutine compute_ritzsystem(T,n,bji,eigvals,eigvecs,eigints,eigsign)
+    use progdata, only: one,beta
+    implicit none
+    integer*8,intent(in)                        :: n
+    integer*8,dimension(n),intent(inout)        :: eigsign
+    real*8,dimension(n*(n+1)/2),intent(inout) :: T
+    real*8,dimension(n),intent(inout)         :: eigvals,eigints,bji
+    real*8,dimension(n,n),intent(inout)       :: eigvecs
+    real*8,dimension(5*n)                     :: tbuf
+    integer*8                                   :: i
+    call givens(n,n,n,T,tbuf,eigvals,eigvecs)
+    call setintarray(eigsign,n,one)
+    do i = 1,n!Test the beta(ji)
+        bji(i) = abs(beta(n)*eigvecs(n,i))
+        if(eigvecs(1,i).lt.0)eigsign(i)=-1
+        eigints(i) = eigvecs(1,i)*eigvecs(1,i)
+    end do
+end subroutine compute_ritzsystem
+
+!Determines the machine precision
+subroutine determine_epsilon()
+    use progdata, only: epsilon,eta
+    implicit none
+    real*8       :: ep1
+    epsilon = dble(1)
+    do
+        epsilon = epsilon/dble(2)
+        ep1 = epsilon + dble(1)
+        if(ep1==dble(1)) exit
+    end do
+    eta = epsilon**(3d0/4d0)
+end subroutine determine_epsilon
+
+subroutine write_ga(ga,ga_file,recstart)
+    use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
+    implicit none
+    integer*8, intent(in)   :: ga,ga_file,recstart
+    integer*8               :: i,j,currec
+    integer*8, dimension(2) :: lo,hi
+    integer*8, dimension(1) :: ld
+    lo = (/ vbounds(myid*nseg+1,1),    1 /)
+    hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
+    ld = (/ hi(1) - lo(1) + 1 /)
+    call nga_get(ga,lo,hi,scr2,ld)
+    currec = (int(recstart)-1)*nstates + 1
+    do i = 1,nstates
+        write(ga_file,rec=currec)(scr2(j,i),j=1,ld(1))
+        currec = currec + 1
+    end do
+end subroutine write_ga
+
+subroutine read_ga(ga,ga_file,recstart)
+    use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
+    implicit none
+    integer*8,intent(in)         :: ga,ga_file,recstart
+    integer*8                    :: i,j,currec
+    integer*8, dimension(2)      :: lo,hi
+    integer*8, dimension(1)      :: ld
+    real*8,parameter :: dscale = 1.
+    lo = (/ vbounds(myid*nseg+1,1),    1 /)
+    hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
+    ld = (/ hi(1) - lo(1) + 1 /)
+    currec = (int(recstart)-1)*nstates + 1
+    do i = 1,nstates
+        read(ga_file,rec=currec)(scr2(j,i),j=1,ld(1))
+        currec = currec + 1
+    end do
+    call NGA_PUT(ga,lo,hi,scr2,ld,dscale)
+end subroutine read_ga
+
+!Reduce Matrix to upper triangular form
+subroutine gauss_elim(m,n,MATIN,MATOUT)
+    implicit none
+    integer*8,intent(in):: m,n
+    real*8,dimension(m,n),intent(in)    :: MATIN
+    real*8,dimension(m,n),intent(inout) :: MATOUT
+    integer*8:: i,j,k,maxr
+    real*8:: val
+    do i = 1,m
+        do j = 1,n
+            MATOUT(i,j) = MATIN(i,j)
+        end do
+    end do
+    do i = 1,m-1
+        maxr = i
+        val = abs(MATOUT(i,i))
+        do j = i+1,m
+            if(abs(MATOUT(j,i))>val) then
+                val = abs(MATOUT(j,i))
+                maxr = j
+            end if
+        end do
+        if(maxr.ne.i)then
+            do j = 1,n
+                val = MATOUT(maxr,j)
+                MATOUT(maxr,j) = MATOUT(i,j)
+                MATOUT(i,j) = val
+            end do
+        end if
+        do j = i+1,m
+            if(MATOUT(j,i).ne.0) then
+                val = -MATOUT(j,i)/MATOUT(i,i)
+                do k = 1,n
+                    MATOUT(j,k) = MATOUT(j,k) + val*MATOUT(i,k)
                 end do
             end if
-            do j = i+1,m
-                if(MATOUT(j,i).ne.0) then
-                    val = -MATOUT(j,i)/MATOUT(i,i)
-                    do k = 1,n
-                        MATOUT(j,k) = MATOUT(j,k) + val*MATOUT(i,k)
-                    end do
-                end if
-            end do
         end do
-    end subroutine gauss_elim
-    
-    !Generate an inital lanczos vector, given a set of weights
-    subroutine generate_initialvec()
-        use progdata, only: myid,nproc,nmodes,nstates,dimen,nfunc,shft,nseg,neworigin,vbounds,statew,scr2,q1,q3, &
-                            aomega,bomega,dvec,tmat,nirreps,npirrep,totstart,totend,zero,zerodp,one,lo,hi,istate
-        use filedata, only: OUTFILE
-        implicit none
+    end do
+end subroutine gauss_elim
+
+!Generate an inital lanczos vector, given a set of weights
+subroutine generate_initialvec()
+    use progdata, only: myid,nproc,nmodes,nstates,dimen,nfunc,shft,nseg,neworigin,vbounds,statew,scr2,q1,q3, &
+                        aomega,bomega,dvec,tmat,nirreps,npirrep,totstart,totend,zero,zerodp,one,lo,hi,istate
+    use filedata, only: OUTFILE
+    implicit none
 #include 'mpif.h'
 #include 'global.fh'
-        logical::fscaled
-        integer*8:: i,j,k,l,m,n,ierr,tmx,tcount,lbuf,stateindex
-        integer*8:: nlev,pstart,pindex,cstart,cindex,sindex,stindex
-        integer*8:: i2,ndo,ndone,npack,ninit,imode,get_procid,get_batch
-        integer*8,dimension(1)      :: ld,ldi
-        integer*8,dimension(nmodes) :: bvec,irrep
-        integer*8,dimension(nirreps):: irroff
-        integer*8,dimension(:),allocatable:: labels,nlterms
-        real*8::detA,detT,d1,d2,fac
-        real*8,dimension(nmodes):: acoef,bcoef,A2d,A3d
-        real*8,dimension(5*nmodes)::Ascr
-        real*8,dimension(nmodes*(nmodes+1)/2)::A
-        real*8,dimension(nmodes,nmodes)::Avec,Ainv,A1,A2,A3,tmatrix
-        real*8,dimension(:),allocatable::Cm,Cmbuf,Cn,Cnbuf
-        if(neworigin) then
-            !Initialize variables and such
-            if(myid==0) write(OUTFILE,1001)
-            ld(1) = hi(1) - lo(1) + 1
-            lbuf = int((vbounds(1,2) - vbounds(1,1)+1)*nstates/(3*nmodes+2))
-            nlev = 0
+    logical::fscaled
+    integer*8:: i,j,k,l,m,n,ierr,tmx,tcount,lbuf,stateindex
+    integer*8:: nlev,pstart,pindex,cstart,cindex,sindex,stindex
+    integer*8:: i2,ndo,ndone,npack,ninit,imode,get_procid,get_batch
+    integer*8,dimension(1)      :: ld,ldi
+    integer*8,dimension(nmodes) :: bvec,irrep
+    integer*8,dimension(nirreps):: irroff
+    integer*8,dimension(:),allocatable:: labels,nlterms
+    real*8::detA,detT,d1,d2,fac
+    real*8,dimension(nmodes):: acoef,bcoef,A2d,A3d
+    real*8,dimension(5*nmodes)::Ascr
+    real*8,dimension(nmodes*(nmodes+1)/2)::A
+    real*8,dimension(nmodes,nmodes)::Avec,Ainv,A1,A2,A3,tmatrix
+    real*8,dimension(:),allocatable::Cm,Cmbuf,Cn,Cnbuf
+    if(neworigin) then
+        !Initialize variables and such
+        if(myid==0) write(OUTFILE,1001)
+        ld(1) = hi(1) - lo(1) + 1
+        lbuf = int((vbounds(1,2) - vbounds(1,1)+1)*nstates/(3*nmodes+2))
+        nlev = 0
+        do i = 1,nmodes
+            nlev = nlev + nfunc(i) - 1
+        end do
+        fscaled = .false.
+        if(fscaled)then
             do i = 1,nmodes
-                nlev = nlev + nfunc(i) - 1
+                acoef(i) = 1.
+                bcoef(i) = 1.
             end do
-            fscaled = .false.
-            if(fscaled)then
-                do i = 1,nmodes
-                    acoef(i) = 1.
-                    bcoef(i) = 1.
-                end do
+        else
+            do i = 1,nmodes
+                 acoef(i) = aomega(i)
+                 bcoef(i) = bomega(i)
+            end do
+        end if
+        do i = 1,nirreps
+            if(i>1)then
+                irroff(i) = irroff(i-1) + npirrep(i-1)
             else
-                do i = 1,nmodes
-                     acoef(i) = aomega(i)
-                     bcoef(i) = bomega(i)
-                end do
+                irroff(i) = 0
             end if
-            do i = 1,nirreps
-                if(i>1)then
-                    irroff(i) = irroff(i-1) + npirrep(i-1)
-                else
-                    irroff(i) = 0
-                end if
-                do j = 1,npirrep(i)
-                    irrep(j+irroff(i)) = i
+            do j = 1,npirrep(i)
+                irrep(j+irroff(i)) = i
+            end do
+        end do
+        !Construct Matrix Quantities
+            do i = 1,nmodes
+                do j = 1,nmodes
+                    tmatrix(j,i) = tmat((i-1)*nmodes+j)
                 end do
             end do
-            !Construct Matrix Quantities
-                do i = 1,nmodes
-                    do j = 1,nmodes
-                        tmatrix(j,i) = tmat((i-1)*nmodes+j)
+            !Get the determinant of the T matrix
+            call gauss_elim(nmodes,nmodes,tmatrix,Avec)
+            detT = 1.
+            do i = 1,nmodes
+                detT = detT*abs(Avec(i,i))
+            end do
+            if(myid==0) print *,'Det(T)=',detT
+            !Construct A matrix
+            call setarray(A,nmodes*(nmodes+1)/2,zerodp)
+            do i = 1,nmodes
+                do j = 1,i
+                    i2 = i*(i-1)/2+j
+                    do k = 1,nmodes
+                        A(i2) = A(i2) + 0.5*bcoef(k)*tmatrix(k,i)*tmatrix(k,j)
                     end do
+                    if(i==j)A(i2) = A(i2) + 0.5*acoef(i)
                 end do
-                !Get the determinant of the T matrix
-                call gauss_elim(nmodes,nmodes,tmatrix,Avec)
-                detT = 1.
-                do i = 1,nmodes
-                    detT = detT*abs(Avec(i,i))
-                end do
-                if(myid==0) print *,'Det(T)=',detT
-                !Construct A matrix
-                call setarray(A,nmodes*(nmodes+1)/2,zerodp)
-                do i = 1,nmodes
-                    do j = 1,i
-                        i2 = i*(i-1)/2+j
-                        do k = 1,nmodes
-                            A(i2) = A(i2) + 0.5*bcoef(k)*tmatrix(k,i)*tmatrix(k,j)
+            end do
+            !Construct A-1 matrix
+            call GIVENS(nmodes,nmodes,nmodes,A,Ascr,A2d,Avec)
+            detA = 1.
+            do i = 1,nmodes
+                detA = detA*abs(A2d(i))
+            end do
+            call setmatrix(Ainv,nmodes,nmodes,zerodp)
+            do i = 1,nmodes
+                Ainv(i,i) = 1/A2d(i)
+            end do
+            call EBC(A1,Avec,Ainv,nmodes,nmodes,nmodes)
+            call EBCT(Ainv,A1,Avec,nmodes,nmodes,nmodes)
+            !Construct A1, A2, and A3 matrices
+            call setmatrix(A2,nmodes,nmodes,zerodp)
+            call setmatrix(A3,nmodes,nmodes,zerodp)
+            do i = 1,nmodes
+                do j = 1,nmodes
+                    A1(i,j) = Ainv(i,j)*Sqrt(acoef(i))*Sqrt(acoef(j))
+                    do k = 1,nmodes
+                        A2(i,j) = A2(i,j) + Ainv(i,k)*tmatrix(j,k)
+                        do l = 1,nmodes
+                            A3(i,j) = A3(i,j) + tmatrix(i,k)*Ainv(k,l)*tmatrix(j,l)
                         end do
-                        if(i==j)A(i2) = A(i2) + 0.5*acoef(i)
                     end do
+                    A2(i,j) = A2(i,j)*Sqrt(acoef(i))*Sqrt(bcoef(j))
+                    A3(i,j) = A3(i,j)*Sqrt(bcoef(i))*Sqrt(bcoef(j))
                 end do
-                !Construct A-1 matrix
-                call GIVENS(nmodes,nmodes,nmodes,A,Ascr,A2d,Avec)
-                detA = 1.
-                do i = 1,nmodes
-                    detA = detA*abs(A2d(i))
+            end do
+            !Initialize terms used in recursion
+            call setarray(A2d,nmodes,zerodp)
+            call setarray(A3d,nmodes,zerodp)
+            do i = 1,nmodes
+                A1(i,i) = A1(i,i) - 1.
+                do j = 1,nmodes
+                    d1 = A3(j,i)
+                    if(j==i) d1 = d1 - 2. 
+                    A2d(i) = A2d(i) + A2(i,j)*dvec(j)*Sqrt(bcoef(j))
+                    A3d(i) = A3d(i) + d1*dvec(j)*Sqrt(bcoef(j))
                 end do
-                call setmatrix(Ainv,nmodes,nmodes,zerodp)
-                do i = 1,nmodes
-                    Ainv(i,i) = 1/A2d(i)
-                end do
-                call EBC(A1,Avec,Ainv,nmodes,nmodes,nmodes)
-                call EBCT(Ainv,A1,Avec,nmodes,nmodes,nmodes)
-                !Construct A1, A2, and A3 matrices
-                call setmatrix(A2,nmodes,nmodes,zerodp)
-                call setmatrix(A3,nmodes,nmodes,zerodp)
-                do i = 1,nmodes
-                    do j = 1,nmodes
-                        A1(i,j) = Ainv(i,j)*Sqrt(acoef(i))*Sqrt(acoef(j))
-                        do k = 1,nmodes
-                            A2(i,j) = A2(i,j) + Ainv(i,k)*tmatrix(j,k)
-                            do l = 1,nmodes
-                                A3(i,j) = A3(i,j) + tmatrix(i,k)*Ainv(k,l)*tmatrix(j,l)
-                            end do
-                        end do
-                        A2(i,j) = A2(i,j)*Sqrt(acoef(i))*Sqrt(bcoef(j))
-                        A3(i,j) = A3(i,j)*Sqrt(bcoef(i))*Sqrt(bcoef(j))
-                    end do
-                end do
-                !Initialize terms used in recursion
-                call setarray(A2d,nmodes,zerodp)
-                call setarray(A3d,nmodes,zerodp)
-                do i = 1,nmodes
-                    A1(i,i) = A1(i,i) - 1.
-                    do j = 1,nmodes
-                        d1 = A3(j,i)
-                        if(j==i) d1 = d1 - 2. 
-                        A2d(i) = A2d(i) + A2(i,j)*dvec(j)*Sqrt(bcoef(j))
-                        A3d(i) = A3d(i) + d1*dvec(j)*Sqrt(bcoef(j))
-                    end do
-                end do
-                !Initialize indices
-                pstart = 1
+            end do
+            !Initialize indices
+            pstart = 1
+            do
+                if(nfunc(pstart)>1) exit
+                pstart = pstart + 1
+            end do
+            cstart = pstart + 1
+            !C00 = 1.
+            if(myid==0)scr2(1,1)=1.
+            call GA_SYNC()
+        !Determine <0|n> for each n in the basis
+            allocate(Cn(lbuf))
+            allocate(Cnbuf(lbuf))
+            allocate(labels(nmodes*lbuf))
+            allocate(Cm(nmodes*lbuf))
+            allocate(Cmbuf(nmodes*lbuf))
+            allocate(nlterms(nlev+1))
+            do i = 0,(nlev-1)
+                call setintarray(bvec,nmodes,one)  
+                nlterms(i+1) = 0
+                ndone = 0
+                pindex = pstart
+                cindex = cstart + 1
+                bvec(pindex) = bvec(pindex) + 1
+                bvec(cindex) = bvec(cindex) - 1
                 do
-                    if(nfunc(pstart)>1) exit
-                    pstart = pstart + 1
-                end do
-                cstart = pstart + 1
-                !C00 = 1.
-                if(myid==0)scr2(1,1)=1.
-                call GA_SYNC()
-            !Determine <0|n> for each n in the basis
-                allocate(Cn(lbuf))
-                allocate(Cnbuf(lbuf))
-                allocate(labels(nmodes*lbuf))
-                allocate(Cm(nmodes*lbuf))
-                allocate(Cmbuf(nmodes*lbuf))
-                allocate(nlterms(nlev+1))
-                do i = 0,(nlev-1)
-                    call setintarray(bvec,nmodes,one)  
-                    nlterms(i+1) = 0
-                    ndone = 0
-                    pindex = pstart
-                    cindex = cstart + 1
-                    bvec(pindex) = bvec(pindex) + 1
-                    bvec(cindex) = bvec(cindex) - 1
-                    do
-                        if(cindex>nmodes) exit
-                        if(bvec(cindex)==nfunc(cindex).or.bvec(pindex)==1) then
-                            cindex = cindex + 1
-                            if(nfunc(cindex-1)>1)pindex = cindex - 1
-                        else
-                            bvec(pindex) = bvec(pindex) - 1
-                            bvec(cindex) = bvec(cindex) + 1
-                            if(cindex>cstart) then
-                            do j = 1,cindex-1
-                             bvec(j) = 1
-                            end do
-                            ndo = 0
-                            do j = cindex,nmodes
-                             ndo = ndo + bvec(j) - 1
-                            end do
-                            ndo = i - ndo
-                            sindex = 1
-                            npack = 0
-                            do
-                                if(npack==ndo) exit
-                                if(bvec(sindex).lt.nfunc(sindex)) then
-                                    bvec(sindex) = bvec(sindex) + 1
-                                    npack = npack + 1
-                                else
-                                    sindex = sindex + 1  
-                                end if
-                            end do
-                            pindex = pstart
-                            cindex = cstart 
-                            end if
-                            stindex = stateindex(nmodes,bvec,shft)
-                            if(stindex>=lo(1).and.stindex<=hi(1))then
-                                Cn(ndone+1) = scr2(stindex-lo(1)+1,1)
-                            else
-                                Cn(ndone+1) = 0d0
-                            end if
-                            do j = 1,nmodes
-                                l = irrep(j)
-                                d1 = 0.
-                                do k = 1,npirrep(l)
-                                    i2 = stindex - shft(k+irroff(l))
-                                    if(i2>=lo(1).and.i2<=hi(1)) d1 = d1 + A1(j,k+irroff(l))*(bvec(k+irroff(l))-1)*scr2(i2-lo(1)+1,1)
-                                end do
-                                Cm(ndone*nmodes+j) = d1
-                                labels(ndone*nmodes+j) = stindex + shft(j)
-                                if(bvec(j)==nfunc(j)) labels(ndone*nmodes+j) = 0       
-                            end do
-                            ndone = ndone + 1
-                        end if
-                        if(ndone>=lbuf)then
-                            call GA_SYNC()
-                            call MPI_ALLREDUCE(Cn,Cnbuf,ndone,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-                            call MPI_ALLREDUCE(Cm,Cmbuf,ndone*nmodes,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-                            do j = 1,ndone
-                                do k = 1,nmodes
-                                    i2 = labels((j-1)*nmodes+k)
-                                    if(i2>=lo(1).and.i2<=hi(1)) scr2(i2-lo(1)+1,1) =  2d0*Cmbuf((j-1)*nmodes+k) - A2d(k)*Cnbuf(j)
-                                end do
-                            end do
-                            nlterms(i+1) = nlterms(i+1) + ndone
-                            ndone = 0
-                        end if
-                    end do
-                    call GA_SYNC()
-                    call MPI_ALLREDUCE(Cn,Cnbuf,ndone,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-                    call MPI_ALLREDUCE(Cm,Cmbuf,ndone*nmodes,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-                    do j = 1,ndone
-                        do k = 1,nmodes
-                            i2 = labels((j-1)*nmodes+k)
-                            if(i2>=lo(1).and.i2<=hi(1)) scr2(i2-lo(1)+1,1) = 2.*Cmbuf((j-1)*nmodes+k) - A2d(k)*Cnbuf(j)
+                    if(cindex>nmodes) exit
+                    if(bvec(cindex)==nfunc(cindex).or.bvec(pindex)==1) then
+                        cindex = cindex + 1
+                        if(nfunc(cindex-1)>1)pindex = cindex - 1
+                    else
+                        bvec(pindex) = bvec(pindex) - 1
+                        bvec(cindex) = bvec(cindex) + 1
+                        if(cindex>cstart) then
+                        do j = 1,cindex-1
+                         bvec(j) = 1
                         end do
-                    end do
-                    nlterms(i+1) = nlterms(i+1) + ndone
-                    if(myid==0)write(*,1003)i+1,nlev
-                end do
-                tcount = 0
-                do j = 1,nlev
-                    tcount = tcount + nlterms(j)
-                    if(myid==0)write(OUTFILE,1004)j-1,nlterms(j)
-                end do
-                if(myid==0)write(OUTFILE,1004)nlev,1
-                tcount = tcount + 1
-                if(myid==0)write(OUTFILE,1005)tcount,dimen
-                deallocate(labels)
-                deallocate(nlterms)
-                deallocate(Cn)
-                deallocate(Cm)
-                deallocate(Cnbuf)
-                deallocate(Cmbuf)
-            !Determine <m|n> by building up successive <m| states
-            !    This assumes a single m in the initial basis is excited,
-            !    more coding in necessary to make the recursions work for arbitrary <m|
-                allocate(labels(lbuf*(2*nmodes+1)))
-                allocate(Cn(lbuf))
-                allocate(nlterms(nproc*nseg))
-                imode = 1
-                do
-                    if(istate(imode)>0.or.imode==nmodes) exit
-                    imode = imode + 1
-                end do
-                ninit = istate(imode)
-                if(ninit>zero)then
-                    call NGA_PUT(q3,lo,hi,scr2,ld,dble(1))
-                    call setarray(scr2,ld(1),nstates,zerodp)
-                    call setintarray(nlterms,nproc*nseg,zero)
-                end if  
-                do i = 1,ninit ! do over levels, m=0, m=1, etc.
-                    if(myid==0) write(OUTFILE,1011)i
-                    call get_barray(lo(1),bvec)
-                    bvec(nmodes) = bvec(nmodes)-1
-                    ldi(1) = min(lbuf,ld(1))
-                    pstart = lo(1)
-                    pindex = lo(1)+ldi(1)-1
-                    call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
-                    ndone = 0
-                    j = 0
-                    do
-                        if(j==lbuf.or.ndone==ld(1))then
-                            do k = 1,nproc*nseg
-                            if(nlterms(k)>0)then
-                                npack = vbounds(k,2) - vbounds(k,1) + 1
-                                ndo = 0
-                                tcount = 0
-                                do
-                                    if(tcount==nlterms(k)) exit
-                                    ldi(1) = min(lbuf,npack-ndo)
-                                    pstart = vbounds(k,1)+ndo
-                                    pindex = vbounds(k,1)+ndo+ldi(1)-1
-                                    call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
-                                    do l = 1,j
-                                        m = (l-1)*(2*nmodes+1)
-                                        do n = 1,nmodes
-                                            if(labels(m+2*n)>=pstart.and.labels(m+2*n)<=pindex)then
-                                                tcount = tcount + 1
-                                                sindex = labels(m+2*n) - pstart + 1
-                                                scr2(labels(m+1),1) = scr2(labels(m+1),1) + 2.*A2(n,imode)*labels(m+2*n+1)*Cn(sindex)
-                                            end if
-                                        end do
-                                    end do
-                                    ndo = ndo + ldi(1)
-                                end do
-                            end if
-                            end do
-                            ldi(1) = min(lbuf,ld(1)-ndone)
-                            pstart = lo(1)+ndone
-                            pindex = lo(1)+ndone+ldi(1)-1
-                            if(ldi(1)>0)call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
-                            call setintarray(nlterms,nproc*nseg,zero)
-                            j = 0
-                        end if
-                        if(ndone==ld(1)) exit
-                        k = nmodes
+                        ndo = 0
+                        do j = cindex,nmodes
+                         ndo = ndo + bvec(j) - 1
+                        end do
+                        ndo = i - ndo
+                        sindex = 1
+                        npack = 0
                         do
-                            if(bvec(k).lt.nfunc(k)) exit
-                            bvec(k) = one
-                            k = k - 1
-                        end do
-                        bvec(k) = bvec(k) + 1
-                        !Determine the C(m-1,n) contribution
-                        scr2(ndone+1,1) = 2.*scr2(ndone+1,1)*(i-1)*(A3(imode,imode)-1.)
-                        !Determine the C(m,n) contribution
-                        scr2(ndone+1,1) = scr2(ndone+1,1) - A3d(imode)*Cn(j+1)
-                        labels(j*(2*nmodes+1)+1) = ndone+1
-                        !Determine where to find C(m,n-1) contributions
-                        do k = 1,nmodes
-                            if(bvec(k)>1)then
-                                labels(j*(2*nmodes+1)+2*k)   = lo(1) + ndone - shft(k)
-                                labels(j*(2*nmodes+1)+2*k+1) = bvec(k) - 1
-                                i2 = get_batch(lo(1) + ndone - shft(k))
-                                nlterms(i2) = nlterms(i2) + 1
+                            if(npack==ndo) exit
+                            if(bvec(sindex).lt.nfunc(sindex)) then
+                                bvec(sindex) = bvec(sindex) + 1
+                                npack = npack + 1
                             else
-                                labels(j*(2*nmodes+1)+2*k)   = -1
-                                labels(j*(2*nmodes+1)+2*k+1) = bvec(k) - 1
-                            end if       
+                                sindex = sindex + 1  
+                            end if
+                        end do
+                        pindex = pstart
+                        cindex = cstart 
+                        end if
+                        stindex = stateindex(nmodes,bvec,shft)
+                        if(stindex>=lo(1).and.stindex<=hi(1))then
+                            Cn(ndone+1) = scr2(stindex-lo(1)+1,1)
+                        else
+                            Cn(ndone+1) = 0d0
+                        end if
+                        do j = 1,nmodes
+                            l = irrep(j)
+                            d1 = 0.
+                            do k = 1,npirrep(l)
+                                i2 = stindex - shft(k+irroff(l))
+                                if(i2>=lo(1).and.i2<=hi(1)) d1 = d1 + A1(j,k+irroff(l))*(bvec(k+irroff(l))-1)*scr2(i2-lo(1)+1,1)
+                            end do
+                            Cm(ndone*nmodes+j) = d1
+                            labels(ndone*nmodes+j) = stindex + shft(j)
+                            if(bvec(j)==nfunc(j)) labels(ndone*nmodes+j) = 0       
                         end do
                         ndone = ndone + 1
-                        j = j + 1
-                    end do
-                    if(i.lt.ninit)then!If(i.ne.ninit), swap the m+1,m levels
-                        ndone = 0
-                        do
-                            if(ndone==ld(1)) exit
-                            ldi(1) = min(lbuf,ld(1)-ndone)
-                            pstart = lo(1)+ndone
-                            pindex = lo(1)+ndone+ldi(1)-1
-                            call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
-                            call GA_PUT(q3,pstart,pindex,1,1,scr2(ndone+1:ndone+ldi(1),1:1),ldi)
-                            do j = 1,ldi(1)
-                                scr2(ndone+j,1) = Cn(j)
+                    end if
+                    if(ndone>=lbuf)then
+                        call GA_SYNC()
+                        call MPI_ALLREDUCE(Cn,Cnbuf,ndone,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+                        call MPI_ALLREDUCE(Cm,Cmbuf,ndone*nmodes,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+                        do j = 1,ndone
+                            do k = 1,nmodes
+                                i2 = labels((j-1)*nmodes+k)
+                                if(i2>=lo(1).and.i2<=hi(1)) scr2(i2-lo(1)+1,1) =  2d0*Cmbuf((j-1)*nmodes+k) - A2d(k)*Cnbuf(j)
                             end do
-                            ndone = ndone + ldi(1)
                         end do
+                        nlterms(i+1) = nlterms(i+1) + ndone
+                        ndone = 0
                     end if
                 end do
-            !Determine the appropriate scale factors to go from C(m,n) to <m|n>, and normalization of the Lanczos vector
+                call GA_SYNC()
+                call MPI_ALLREDUCE(Cn,Cnbuf,ndone,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+                call MPI_ALLREDUCE(Cm,Cmbuf,ndone*nmodes,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
+                do j = 1,ndone
+                    do k = 1,nmodes
+                        i2 = labels((j-1)*nmodes+k)
+                        if(i2>=lo(1).and.i2<=hi(1)) scr2(i2-lo(1)+1,1) = 2.*Cmbuf((j-1)*nmodes+k) - A2d(k)*Cnbuf(j)
+                    end do
+                end do
+                nlterms(i+1) = nlterms(i+1) + ndone
+                if(myid==0)write(*,1003)i+1,nlev
+            end do
+            tcount = 0
+            do j = 1,nlev
+                tcount = tcount + nlterms(j)
+                if(myid==0)write(OUTFILE,1004)j-1,nlterms(j)
+            end do
+            if(myid==0)write(OUTFILE,1004)nlev,1
+            tcount = tcount + 1
+            if(myid==0)write(OUTFILE,1005)tcount,dimen
+            deallocate(labels)
+            deallocate(nlterms)
+            deallocate(Cn)
+            deallocate(Cm)
+            deallocate(Cnbuf)
+            deallocate(Cmbuf)
+        !Determine <m|n> by building up successive <m| states
+        !    This assumes a single m in the initial basis is excited,
+        !    more coding in necessary to make the recursions work for arbitrary <m|
+            allocate(labels(lbuf*(2*nmodes+1)))
+            allocate(Cn(lbuf))
+            allocate(nlterms(nproc*nseg))
+            imode = 1
+            do
+                if(istate(imode)>0.or.imode==nmodes) exit
+                imode = imode + 1
+            end do
+            ninit = istate(imode)
+            if(ninit>zero)then
+                call NGA_PUT(q3,lo,hi,scr2,ld,dble(1))
+                call setarray(scr2,ld(1),nstates,zerodp)
+                call setintarray(nlterms,nproc*nseg,zero)
+            end if  
+            do i = 1,ninit ! do over levels, m=0, m=1, etc.
+                if(myid==0) write(OUTFILE,1011)i
                 call get_barray(lo(1),bvec)
                 bvec(nmodes) = bvec(nmodes)-1
-                !Compute G
-                    d1 = 0.
-                    d2 = 1.
-                    do i = 1,nmodes
-                        d1 = d1 - 0.5*bcoef(i)*(dvec(i)**2)
-                    end do
-                    do i = 1,nmodes
-                        do j = 1,nmodes
-                            d1 = d1 + 0.25*Sqrt(bcoef(i))*dvec(i)*A3(i,j)*dvec(j)*Sqrt(bcoef(j))
+                ldi(1) = min(lbuf,ld(1))
+                pstart = lo(1)
+                pindex = lo(1)+ldi(1)-1
+                call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
+                ndone = 0
+                j = 0
+                do
+                    if(j==lbuf.or.ndone==ld(1))then
+                        do k = 1,nproc*nseg
+                        if(nlterms(k)>0)then
+                            npack = vbounds(k,2) - vbounds(k,1) + 1
+                            ndo = 0
+                            tcount = 0
+                            do
+                                if(tcount==nlterms(k)) exit
+                                ldi(1) = min(lbuf,npack-ndo)
+                                pstart = vbounds(k,1)+ndo
+                                pindex = vbounds(k,1)+ndo+ldi(1)-1
+                                call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
+                                do l = 1,j
+                                    m = (l-1)*(2*nmodes+1)
+                                    do n = 1,nmodes
+                                        if(labels(m+2*n)>=pstart.and.labels(m+2*n)<=pindex)then
+                                            tcount = tcount + 1
+                                            sindex = labels(m+2*n) - pstart + 1
+                                            scr2(labels(m+1),1) = scr2(labels(m+1),1) + 2.*A2(n,imode)*labels(m+2*n+1)*Cn(sindex)
+                                        end if
+                                    end do
+                                end do
+                                ndo = ndo + ldi(1)
+                            end do
+                        end if
                         end do
+                        ldi(1) = min(lbuf,ld(1)-ndone)
+                        pstart = lo(1)+ndone
+                        pindex = lo(1)+ndone+ldi(1)-1
+                        if(ldi(1)>0)call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
+                        call setintarray(nlterms,nproc*nseg,zero)
+                        j = 0
+                    end if
+                    if(ndone==ld(1)) exit
+                    k = nmodes
+                    do
+                        if(bvec(k).lt.nfunc(k)) exit
+                        bvec(k) = one
+                        k = k - 1
                     end do
-                    do i = 1,nmodes
-                        d2 = d2*bcoef(i)*acoef(i)
+                    bvec(k) = bvec(k) + 1
+                    !Determine the C(m-1,n) contribution
+                    scr2(ndone+1,1) = 2.*scr2(ndone+1,1)*(i-1)*(A3(imode,imode)-1.)
+                    !Determine the C(m,n) contribution
+                    scr2(ndone+1,1) = scr2(ndone+1,1) - A3d(imode)*Cn(j+1)
+                    labels(j*(2*nmodes+1)+1) = ndone+1
+                    !Determine where to find C(m,n-1) contributions
+                    do k = 1,nmodes
+                        if(bvec(k)>1)then
+                            labels(j*(2*nmodes+1)+2*k)   = lo(1) + ndone - shft(k)
+                            labels(j*(2*nmodes+1)+2*k+1) = bvec(k) - 1
+                            i2 = get_batch(lo(1) + ndone - shft(k))
+                            nlterms(i2) = nlterms(i2) + 1
+                        else
+                            labels(j*(2*nmodes+1)+2*k)   = -1
+                            labels(j*(2*nmodes+1)+2*k+1) = bvec(k) - 1
+                        end if       
                     end do
-                    d2 = Sqrt(Sqrt(d2)*detT/detA)*exp(d1)
-                !Determine state dependent scale factor
-                    do i = 1,ld(1)
-                        j = nmodes
-                        do
-                            if(bvec(j).lt.nfunc(j)) exit
-                            bvec(j) = one
-                            j = j - 1
+                    ndone = ndone + 1
+                    j = j + 1
+                end do
+                if(i.lt.ninit)then!If(i.ne.ninit), swap the m+1,m levels
+                    ndone = 0
+                    do
+                        if(ndone==ld(1)) exit
+                        ldi(1) = min(lbuf,ld(1)-ndone)
+                        pstart = lo(1)+ndone
+                        pindex = lo(1)+ndone+ldi(1)-1
+                        call GA_GET(q3,pstart,pindex,1,1,Cn,ldi)
+                        call GA_PUT(q3,pstart,pindex,1,1,scr2(ndone+1:ndone+ldi(1),1:1),ldi)
+                        do j = 1,ldi(1)
+                            scr2(ndone+j,1) = Cn(j)
                         end do
-                        bvec(j) = bvec(j) + 1
-                        d1 = 1.
-                        do j = 1,nmodes
-                            d1 = d1*(2.**(bvec(j)-1))*fac(bvec(j)-1)*(2.**istate(j))*fac(istate(j))
-                        end do
-                        scr2(i,1) = d2*scr2(i,1)/Sqrt(d1)
-                        do j = 2,nstates
-                            scr2(i,j) = scr2(i,1)
-                        end do
+                        ndone = ndone + ldi(1)
                     end do
-                    call NGA_PUT(q3,lo,hi,scr2,ld,dble(1))
-        else
-            d1 = 1d0
-            stindex = 1 
-            if(myid==0)write(OUTFILE,1000)
-            call GA_ZERO(q3)
-            call GA_SYNC()
-            call GA_FILL_PATCH(q3,stindex,stindex,1,nstates,d1)
-        end if
-        call GA_SYNC()
-        d1 = Sqrt(GA_DDOT(q3,q3)/nstates)
-        if(myid==0)then
-            write(OUTFILE,1006)d1
-            write(OUTFILE,1007)
-        end if
-        !Print out dominant contributions to initial vector
-        call GA_ELEM_MULTIPLY(q3,q3,q1)
-        sindex = 0
-        do
-            call NGA_SELECT_ELEM(q1,'max',d2,irrep)
-            if(sindex==40.or.d2==0.) exit
-            sindex = sindex + 1
-            call GA_SYNC()
-            call GA_FILL_PATCH(q1,irrep(1),irrep(1),1,nstates,zerodp)
-            call get_barray(irrep(1),bvec)
-            do i = 1,nmodes
-                bvec(i) = bvec(i)-1
+                end if
             end do
-            if(myid==0) then
-                write(OUTFILE,1008,advance='no')sindex
-                write(OUTFILE,1009,advance='no')bvec
-                write(OUTFILE,1010)d2
-            end if
-        end do
-        !Scale each state vector according to the weights array
-        d2=0.D0
-        do i = 1,nstates
-            d2 = d2 + statew(i)
-        end do
-        if(d2==0.)d2 = 1.D0
-        do i = 1,nstates
-            call GA_SCALE_PATCH(q3,1,dimen,i,i,statew(i)/(d2*d1))
-        end do   
-        !Do final normalization of initial Lanczos vector
-        if(myid==0)write(OUTFILE,1022)
-        d2 = 0.D0
-        do i = 1,nstates
-            d1 = Sqrt(GA_DDOT_PATCH(q3,'N',1,dimen,i,i,q3,'N',1,dimen,i,i))
-            d2 = d2 + d1**2
-            if(myid==0)write(OUTFILE,1023)i,d1,i,d1**2
-        end do
-        if(myid==0)then
-            write(OUTFILE,1024)Sqrt(d2),d2
-            write(OUTFILE,1025)
-        end if
-        call GA_SCALE(q3,1.D0/Sqrt(d2))
-        d1 = GA_DDOT(q3,q3)
-        if(myid==0)write(OUTFILE,1024)Sqrt(d1),d1
-        call system_clock(totstart,tcount,tmx)
-        if(myid==0)write(OUTFILE,1002)1.*(totstart-totend)/tcount
-        !format
-            1000 format(/,'  ',70('*'),/,'  Generating Seed Vector using ANION basis...')
-            1001 format(/,'  ',70('*'),/,'  Generating Seed Vector by computing ANION/ORIGIN overlap...')
-            1002 format(/,'  Time Required: ',f14.3,' secs.',/,'  ',70('*'),/)
-            1003 format('  COMPUTED LEVEL ',i6,' of ',i6)
-            1004 format('  LEVEL ',i5,', Number of terms:     ',i12)
-            1005 format(/,'  Sum over levels:                  ',i12,/,      &
-                          '  Size of direct product basis:     ',i12,/)
-            1006 format(/,'  Overlap with the initial state:   ',f12.6)
-            1007 format(/,'  Dominant Contributions to Overlap',/'  ---------------------------------')
-            1008 format('  ',i2,'. ')
-            1009 format(18(i2,','))
-            1010 format(': ',f12.6)
-            1011 format('  Building <m| = <',i2,'|')
-            1020 format('ID=',i2,' INDX=',i6,' BVEC=',15(i3))
-            1021 format('ID=',i2,' NORMINIT=',f15.10)
-            1022 format(/,'  Normalization of Initial Lanczos Vector')
-            1023 format('  ||STATE',i2,'|| = ',f6.4,' -- (||STATE',i2,'||)^2 = ',f6.4)
-            1024 format('  || TOTAL || = ',f6.4,' -- (|| TOTAL ||)^2 = ',f6.4)
-            1025 format('  Normalizing Initial Lanczos Vector...')
-    end subroutine generate_initialvec
-    
-    !Returns the basis array corresponding to the state label, stateindex
-    subroutine get_barray(stateindex,barray)
-        use progdata, only: nmodes,shft
-        implicit none
-        integer*8,intent(in)                     :: stateindex
-        integer*8,dimension(nmodes),intent(inout):: barray
-        integer*8                                :: i,stlabel,tmp
-        stlabel = stateindex - 1
-        if(stlabel.lt.0)stlabel=0
+        !Determine the appropriate scale factors to go from C(m,n) to <m|n>, and normalization of the Lanczos vector
+            call get_barray(lo(1),bvec)
+            bvec(nmodes) = bvec(nmodes)-1
+            !Compute G
+                d1 = 0.
+                d2 = 1.
+                do i = 1,nmodes
+                    d1 = d1 - 0.5*bcoef(i)*(dvec(i)**2)
+                end do
+                do i = 1,nmodes
+                    do j = 1,nmodes
+                        d1 = d1 + 0.25*Sqrt(bcoef(i))*dvec(i)*A3(i,j)*dvec(j)*Sqrt(bcoef(j))
+                    end do
+                end do
+                do i = 1,nmodes
+                    d2 = d2*bcoef(i)*acoef(i)
+                end do
+                d2 = Sqrt(Sqrt(d2)*detT/detA)*exp(d1)
+            !Determine state dependent scale factor
+                do i = 1,ld(1)
+                    j = nmodes
+                    do
+                        if(bvec(j).lt.nfunc(j)) exit
+                        bvec(j) = one
+                        j = j - 1
+                    end do
+                    bvec(j) = bvec(j) + 1
+                    d1 = 1.
+                    do j = 1,nmodes
+                        d1 = d1*(2.**(bvec(j)-1))*fac(bvec(j)-1)*(2.**istate(j))*fac(istate(j))
+                    end do
+                    scr2(i,1) = d2*scr2(i,1)/Sqrt(d1)
+                    do j = 2,nstates
+                        scr2(i,j) = scr2(i,1)
+                    end do
+                end do
+                call NGA_PUT(q3,lo,hi,scr2,ld,dble(1))
+    else
+        d1 = 1d0
+        stindex = 1 
+        if(myid==0)write(OUTFILE,1000)
+        call GA_ZERO(q3)
+        call GA_SYNC()
+        call GA_FILL_PATCH(q3,stindex,stindex,1,nstates,d1)
+    end if
+    call GA_SYNC()
+    d1 = Sqrt(GA_DDOT(q3,q3)/nstates)
+    if(myid==0)then
+        write(OUTFILE,1006)d1
+        write(OUTFILE,1007)
+    end if
+    !Print out dominant contributions to initial vector
+    call GA_ELEM_MULTIPLY(q3,q3,q1)
+    sindex = 0
+    do
+        call NGA_SELECT_ELEM(q1,'max',d2,irrep)
+        if(sindex==40.or.d2==0.) exit
+        sindex = sindex + 1
+        call GA_SYNC()
+        call GA_FILL_PATCH(q1,irrep(1),irrep(1),1,nstates,zerodp)
+        call get_barray(irrep(1),bvec)
         do i = 1,nmodes
-            barray(i) = int(stlabel/shft(i)) + 1
-            stlabel = stlabel - (barray(i)-1)*shft(i)
+            bvec(i) = bvec(i)-1
         end do
-    end subroutine get_barray
-    
-    subroutine get_keywords()
-        use progdata
-        use filedata, only: BASISFILE
-        implicit none
-        integer*8,dimension(10)          :: npirr
-        integer*8,dimension(100)         :: basis,initstate
-        integer*8                        :: i,itmp,restart,bconv,sodata,shiftref,get_restart_iter,reorthog
-        real*8,dimension(10) :: weights
-        NAMELIST /NADVIBS/         niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog, &
-                                   chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
-        call setintarray(basis,int(100),one)
-        call setintarray(initstate,int(100),zero)
-        call setintarray(npirr,int(10),zero)
-        call setarray(weights,int(10),zerodp)
-        npirr(1) = nmodes
-        ordr = 2
+        if(myid==0) then
+            write(OUTFILE,1008,advance='no')sindex
+            write(OUTFILE,1009,advance='no')bvec
+            write(OUTFILE,1010)d2
+        end if
+    end do
+    !Scale each state vector according to the weights array
+    d2=0.D0
+    do i = 1,nstates
+        d2 = d2 + statew(i)
+    end do
+    if(d2==0.)d2 = 1.D0
+    do i = 1,nstates
+        call GA_SCALE_PATCH(q3,1,dimen,i,i,statew(i)/(d2*d1))
+    end do   
+    !Do final normalization of initial Lanczos vector
+    if(myid==0)write(OUTFILE,1022)
+    d2 = 0.D0
+    do i = 1,nstates
+        d1 = Sqrt(GA_DDOT_PATCH(q3,'N',1,dimen,i,i,q3,'N',1,dimen,i,i))
+        d2 = d2 + d1**2
+        if(myid==0)write(OUTFILE,1023)i,d1,i,d1**2
+    end do
+    if(myid==0)then
+        write(OUTFILE,1024)Sqrt(d2),d2
+        write(OUTFILE,1025)
+    end if
+    call GA_SCALE(q3,1.D0/Sqrt(d2))
+    d1 = GA_DDOT(q3,q3)
+    if(myid==0)write(OUTFILE,1024)Sqrt(d1),d1
+    call system_clock(totstart,tcount,tmx)
+    if(myid==0)write(OUTFILE,1002)1.*(totstart-totend)/tcount
+    !format
+        1000 format(/,'  ',70('*'),/,'  Generating Seed Vector using ANION basis...')
+        1001 format(/,'  ',70('*'),/,'  Generating Seed Vector by computing ANION/ORIGIN overlap...')
+        1002 format(/,'  Time Required: ',f14.3,' secs.',/,'  ',70('*'),/)
+        1003 format('  COMPUTED LEVEL ',i6,' of ',i6)
+        1004 format('  LEVEL ',i5,', Number of terms:     ',i12)
+        1005 format(/,'  Sum over levels:                  ',i12,/,      &
+                      '  Size of direct product basis:     ',i12,/)
+        1006 format(/,'  Overlap with the initial state:   ',f12.6)
+        1007 format(/,'  Dominant Contributions to Overlap',/'  ---------------------------------')
+        1008 format('  ',i2,'. ')
+        1009 format(18(i2,','))
+        1010 format(': ',f12.6)
+        1011 format('  Building <m| = <',i2,'|')
+        1020 format('ID=',i2,' INDX=',i6,' BVEC=',15(i3))
+        1021 format('ID=',i2,' NORMINIT=',f15.10)
+        1022 format(/,'  Normalization of Initial Lanczos Vector')
+        1023 format('  ||STATE',i2,'|| = ',f6.4,' -- (||STATE',i2,'||)^2 = ',f6.4)
+        1024 format('  || TOTAL || = ',f6.4,' -- (|| TOTAL ||)^2 = ',f6.4)
+        1025 format('  Normalizing Initial Lanczos Vector...')
+end subroutine generate_initialvec
+
+!Returns the basis array corresponding to the state label, stateindex
+subroutine get_barray(stateindex,barray)
+    use progdata, only: nmodes,shft
+    implicit none
+    integer*8,intent(in)                     :: stateindex
+    integer*8,dimension(nmodes),intent(inout):: barray
+    integer*8                                :: i,stlabel,tmp
+    stlabel = stateindex - 1
+    if(stlabel.lt.0)stlabel=0
+    do i = 1,nmodes
+        barray(i) = int(stlabel/shft(i)) + 1
+        stlabel = stlabel - (barray(i)-1)*shft(i)
+    end do
+end subroutine get_barray
+
+subroutine get_keywords()
+    use progdata
+    use filedata, only: BASISFILE
+    implicit none
+    integer*8,dimension(10)          :: npirr
+    integer*8,dimension(100)         :: basis,initstate
+    integer*8                        :: i,itmp,restart,bconv,sodata,shiftref,get_restart_iter,reorthog
+    real*8,dimension(10) :: weights
+    NAMELIST /NADVIBS/         niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog, &
+                               chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
+    call setintarray(basis,int(100),one)
+    call setintarray(initstate,int(100),zero)
+    call setintarray(npirr,int(10),zero)
+    call setarray(weights,int(10),zerodp)
+    npirr(1) = nmodes
+    ordr = 2
+    nirreps = 1
+    niter = 1
+    natoms = 2
+    nmodes = 1
+    nstates = 1
+    restart = 0
+    bconv = 1
+    idroots = 0
+    soroots = 0
+    reorthog = 0
+    chkorthog = 100
+    nseg = 1
+    ztoler = 1.D-20
+    maxdisk = 1000
+    shiftref = 0
+    dimen = 1
+    neworigin  = .false.
+    restartrun = .false.
+    savevecs   = .false.
+    orthog     = .false.
+    orthogexact = .false.
+    iiter = 1
+    open(unit=BASISFILE,file='basis.in',access='sequential',form='formatted',status='old')
+    read(unit=BASISFILE,NML=NADVIBS)
+    close(unit=BASISFILE)
+    if(sum(npirr).ne.nmodes)then
+        write(*,1000)sum(npirr),nmodes
         nirreps = 1
-        niter = 1
-        natoms = 2
-        nmodes = 1
-        nstates = 1
-        restart = 0
-        bconv = 1
-        idroots = 0
-        soroots = 0
-        reorthog = 0
-        chkorthog = 100
-        nseg = 1
-        ztoler = 1.D-20
-        maxdisk = 1000
-        shiftref = 0
-        dimen = 1
-        neworigin  = .false.
-        restartrun = .false.
-        savevecs   = .false.
-        orthog     = .false.
-        orthogexact = .false.
-        iiter = 1
-        open(unit=BASISFILE,file='basis.in',access='sequential',form='formatted',status='old')
-        read(unit=BASISFILE,NML=NADVIBS)
-        close(unit=BASISFILE)
-        if(sum(npirr).ne.nmodes)then
-            write(*,1000)sum(npirr),nmodes
-            nirreps = 1
-            npirr(1) = nmodes
-        end if
-        allocate(npirrep(nirreps))
-        do i = 1,nirreps
-            npirrep(i) = npirr(i)
-        end do
-        if(reorthog>0) orthog = .true.
-        if(reorthog>1) orthogexact = .true.
-        idroots = abs(idroots)
-        soroots = abs(soroots)
-        if(restart.ne.0)then
-         restartrun = .true.
-         iiter = get_restart_iter()+1
-         niter = niter + iiter - 1
-        end if
-        if(shiftref.ne.0)neworigin = .true.
-        if(orthog.or.idroots>0.or.soroots>0)savevecs = .true.
-        bjiconv = 10.**(-bconv)
-        allocate(statew(nstates))
-        allocate(nfunc(nmodes))
-        allocate(istate(nmodes))
-        do i = 1,nstates
-            statew(i) = weights(i)
-        end do
-        do i = 1,nmodes
-            istate(i) = initstate(i)
-            nfunc(i)  = basis(i)
-            dimen     = dimen*nfunc(i)
-        end do
-        !format
-            1000 format(' SYMMETRY CONFLICT, ',i5,' != ',i5,' --> setting nirrep=1')
-    end subroutine get_keywords
-    
-    !Extract all the information from a restart.log file
-    subroutine load_restartinfo(reloadall)
-        use progdata, only: alpha,beta,omega,orthog
-        use filedata, only: RESTARTFILE
-        implicit none
-        logical, intent(inout)::reloadall
-        CHARACTER(75)::commentline
-        CHARACTER(80)::command
-        CHARACTER(20)::filename
-        CHARACTER(8) ::searchterm,currterm
-        integer*8::i,nload
-        real*8::dpval
-        open(unit=RESTARTFILE,file='restart.log',status='old')
-        read(unit=RESTARTFILE,fmt='(a75)')commentline
-        read(unit=RESTARTFILE,fmt='(i5)')i
-        read(unit=RESTARTFILE,fmt='(a75)')commentline
-        read(unit=RESTARTFILE,fmt='(i5)')nload
-        reloadall = i==nload
-        read(unit=RESTARTFILE,fmt='(a75)')commentline
-        read(unit=RESTARTFILE,fmt=*)(alpha(i),i=1,nload)
-        searchterm=' BETA CO'
+        npirr(1) = nmodes
+    end if
+    allocate(npirrep(nirreps))
+    do i = 1,nirreps
+        npirrep(i) = npirr(i)
+    end do
+    if(reorthog>0) orthog = .true.
+    if(reorthog>1) orthogexact = .true.
+    idroots = abs(idroots)
+    soroots = abs(soroots)
+    if(restart.ne.0)then
+     restartrun = .true.
+     iiter = get_restart_iter()+1
+     niter = niter + iiter - 1
+    end if
+    if(shiftref.ne.0)neworigin = .true.
+    if(orthog.or.idroots>0.or.soroots>0)savevecs = .true.
+    bjiconv = 10.**(-bconv)
+    allocate(statew(nstates))
+    allocate(nfunc(nmodes))
+    allocate(istate(nmodes))
+    do i = 1,nstates
+        statew(i) = weights(i)
+    end do
+    do i = 1,nmodes
+        istate(i) = initstate(i)
+        nfunc(i)  = basis(i)
+        dimen     = dimen*nfunc(i)
+    end do
+    !format
+        1000 format(' SYMMETRY CONFLICT, ',i5,' != ',i5,' --> setting nirrep=1')
+end subroutine get_keywords
+
+!Extract all the information from a restart.log file
+subroutine load_restartinfo(reloadall)
+    use progdata, only: alpha,beta,omega,orthog
+    use filedata, only: RESTARTFILE
+    implicit none
+    logical, intent(inout)::reloadall
+    CHARACTER(75)::commentline
+    CHARACTER(80)::command
+    CHARACTER(20)::filename
+    CHARACTER(8) ::searchterm,currterm
+    integer*8::i,nload
+    real*8::dpval
+    open(unit=RESTARTFILE,file='restart.log',status='old')
+    read(unit=RESTARTFILE,fmt='(a75)')commentline
+    read(unit=RESTARTFILE,fmt='(i5)')i
+    read(unit=RESTARTFILE,fmt='(a75)')commentline
+    read(unit=RESTARTFILE,fmt='(i5)')nload
+    reloadall = i==nload
+    read(unit=RESTARTFILE,fmt='(a75)')commentline
+    read(unit=RESTARTFILE,fmt=*)(alpha(i),i=1,nload)
+    searchterm=' BETA CO'
+    do 
+        read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
+        if(currterm==searchterm) exit
+    end do
+    read(unit=RESTARTFILE,fmt=*)(beta(i),i=0,nload)
+    if(orthog) then
+        searchterm=' OMEGA(1'
         do 
             read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
             if(currterm==searchterm) exit
         end do
-        read(unit=RESTARTFILE,fmt=*)(beta(i),i=0,nload)
-        if(orthog) then
-            searchterm=' OMEGA(1'
-            do 
-                read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
-                if(currterm==searchterm) exit
-            end do
-            read(unit=RESTARTFILE,fmt=1000)(omega(1,i),i=1,nload+2)
-            searchterm=' OMEGA(2'
-            do 
-                read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
-                if(currterm==searchterm) exit
-            end do
-            read(unit=RESTARTFILE,fmt=1000)(omega(2,i),i=1,nload+2)
-        end if   
-        close(unit=RESTARTFILE)
-        filename = 'restart.log'
-        command = 'mv -f '//trim(filename)//' '//trim(filename)//'.old'
-        call system(command)
-        !goto and format
-            10 STOP 'ERROR in load_restartinfo()'
-            1000 format(4(f18.14))
-            1001 format(a8)
-    end subroutine load_restartinfo
-    
-    !Constructs the tridiagonal matrix T from alpha and beta. If n is less than the current iteration,
-    !make_tridiag will construct from the bottom right of the matrix up -- so the most current alpha and betas are always included
-    !Input:  n -- dimension of T to construct
-    !Output: T -- tridiagonal matrix, packed by columns in upper triangular form
-    subroutine make_tmatrix(T,n)
-        use progdata, only: alpha,beta,maxstor,zerodp
-        use filedata, only: OUTFILE
-        implicit none
-        integer*8,intent(in)::n
-        real*8,intent(inout),dimension(n*(n+1)/2)::T
-        integer*8::i,j,k,counter
-        counter = 0
-        do i = 1,n
-            do j = 1,i
-                counter = counter + 1
-                if(j==i) then
-                    T(counter) = alpha(j)
-                elseif(j==(i-1)) then
-                    T(counter) = beta(j)
-                else
-                    T(counter) = 0.
-                end if
-            end do
+        read(unit=RESTARTFILE,fmt=*)(omega(1,i),i=1,nload+2)
+        searchterm=' OMEGA(2'
+        do 
+            read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
+            if(currterm==searchterm) exit
         end do
-        if(counter.ne.(n*(n+1)/2)) write(unit=OUTFILE,fmt=*)'POTENTIAL ERROR IN make_tmatrix - counter=',counter,', n=',n
-    end subroutine make_tmatrix
-    
-    !Prints out a matrix to file
-    subroutine matrix_write(itape,n,m,a,wformat)
-        integer*8, intent(in)                 	     :: n,itape,wformat
-        real*8,intent(in),dimension(n,n) :: a
-        integer*8                                    :: i,fstate
-        assign 1000 to fstate
-        if(wformat==1) assign 1001 to fstate
-        do i=1,n
-            write(unit=itape,fmt=fstate)i,(a(i,k),k=1,m)
-        end do
-        !format
-            1000 format(1x,i3,6f10.5,/(4x,6f10.5))
-            1001 format(1x,i3,6es14.5,/(4x,6es14.5))
-    end subroutine matrix_write
-    
-    !Determines the total amount of memory the program will require in MB 
-    subroutine memory_test(umem,rmem)
-        use progdata, only: dimen,nstates,nmodes,niter,nfunc,nstblks,orthog,maxstor,maxdisk,  &
-                            restartrun,myid,nproc,nseg,ordr,noterms,nztrms,nsteps
-        implicit none
-        real*8,intent(in)   ::umem
-        real*8,intent(inout)::rmem
-        integer*8::i,i1,i2,vsize,lchunk
-        real*8::ndoubles,nintegers
-        ndoubles = 0d0
-        nintegers = 0d0
-        lchunk = Ceiling(1.*dimen/nproc)+100 ! To account for slight differences in vector lengths
-        vsize = dimen*nstates
-        maxstor = int(1024*1024*nproc*maxdisk/(8*vsize)) - 3
-        !First we determine the memory required to hold the program data
-        ndoubles = ndoubles + 2*niter       ! for alpha, beta
-        ndoubles = ndoubles + niter*(niter+1)/2 !Tmat
-        ndoubles = ndoubles + niter*niter   !Ymat
-        ndoubles = ndoubles + 8*niter       !yval,bji,Tvals,escr
-        ndoubles = ndoubles + 2*(niter+1)   !omega
-        ndoubles = ndoubles + niter         !dpvec
-        ndoubles = ndoubles + nmodes*nmodes !Tmat
-        ndoubles = ndoubles + nmodes        !dvec
-        ndoubles = ndoubles + 2*nmodes      !aomega,bomega
-        !Storage required for lanczos vectors
-        ndoubles = ndoubles + 3*nstates*lchunk + 100 ! global arrays memory
-        !Storage required for scratch
-        ndoubles = ndoubles + nstates*lchunk + nstates*Ceiling(1.*lchunk/nseg) ! scr1 and scr2
-        nintegers = nintegers + nmodes !for shft
-        nintegers = nintegers + nmodes !for nfunc
-        nintegers = nintegers + Ceiling(2.*niter/100.) !loindex,roindex
-        i1 = sum(nztrms)
-        i2 = sum(nsteps)
-        nintegers = nintegers + i1*nstates*nstates     ! nzcoef
-        nintegers = nintegers + i1*2*nstates*nstates+1 ! nzblks
-        nintegers = nintegers + i1*2*ordr              ! nzindx
-        nintegers = nintegers + i1*ordr              ! bmax
-        nintegers = nintegers + i1                   ! nsteps
-        nintegers = nintegers + 2*i2*ordr            ! stype,basdif
-        nintegers = nintegers + nproc*nseg*i2        ! nelems
-        nintegers = nintegers + 2*nproc*nseg*i2*ordr ! basind, bstart
-        nintegers = nintegers + 2*nproc*nseg         ! rcshft
-        rmem = (ndoubles*8. + nintegers*8.)/(1024.*1024.) ! in MB
-    end subroutine memory_test
-    
-    !Given a full symmetric matrix "a" packed by columns, return "m" in upper triangular form, packed by columns
-    subroutine totriang(n,a,m)
-        integer*8,intent(in)					:: n
-        integer*8						:: i,j,ij,mindex
-        real*8,dimension(n*n),intent(in)		:: a
-        real*8,dimension(n*(n+1)/2),intent(inout)	:: m
-        mindex=1
-        do i = 1,n
-            do j = 1,i
-                ij = i+n*(j-1)
-                m(mindex) = a(ij)
-                mindex =  mindex + 1
-            end do
-        end do
-    end subroutine totriang
-    
-    subroutine write_scrfile(n)
-        use progdata, only: alpha,beta
-        use filedata, only: SCRFILE
-        implicit none
-        integer*8,intent(in)  :: n
-        integer*8             :: i
-        rewind(unit=SCRFILE)
-        write(unit=SCRFILE,fmt=1000)n-1
-        write(unit=SCRFILE,fmt='(a)')' ALPHA COEFFICIENTS'
-        write(unit=SCRFILE,fmt=1001)alpha(1:n-1)
-        write(unit=SCRFILE,fmt='(a)')' BETA COEFFICIENTS'
-        write(unit=SCRFILE,fmt=1001)beta(0:n-1)
-        !format
-            1000 format('COEFFICIENT INFORMATION AFTER ',i4, ' ITERATIONS')
-            1001 format(4(f18.14))
-    end subroutine write_scrfile
-    
-    !Creates an n-length array, initializes elements to val
-    subroutine setarray(a,n,val)
-        integer*8,intent(in)                          :: n
-        real*8,intent(in)                 :: val
-        real*8,intent(inout),dimension(n) :: a
-        a=val
-    end subroutine setarray
-    
-    !Creates an m x n matrix, intializes elements to val
-    subroutine setmatrix(a,m,n,val)
-        integer*8, intent(in)                            :: m,n
-        real*8, intent(in)                   :: val
-        real*8, intent(inout),dimension(m,n) :: a
-        integer*8 				         :: i,j
-        a=val
-    end subroutine setmatrix
-    
-    !Creates an n-length array, initializes elements to val
-    subroutine setintarray(a,n,val)
-        integer*8, intent(in)                   :: n
-        integer*8, intent(in)                   :: val
-        integer*8, intent(inout),dimension(n)	:: a
-        integer*8	                        :: i
-        a=val
-    end subroutine setintarray
-    
-    !Creates an m x n matrix, initializes elements to val
-    subroutine setintmatrix(a,m,n,val)
-        integer*8, intent(in)                   :: m,n
-        integer*8, intent(in)                   :: val
-        integer*8, intent(inout),dimension(m,n)	:: a
-        integer*8 			        :: i,j
-        a=val
-    end subroutine setintmatrix
-    
-    subroutine union(nl,list,nu,uni)
-        integer*8, intent(in)                   :: nl
-        integer*8, dimension(nl), intent(in)    :: list
-        integer*8, intent(inout)                :: nu
-        integer*8, dimension(nl), intent(inout) :: uni            
-        integer*8                               :: i,j,k
-        nu = 0
-        do i = 1,nl
-            k = 1
-            do j = 1,nu
-                if(list(i)==uni(j))then
-                    k=0
-                    exit
-                end if
-            end do
-            if(k==1)then
-                nu = nu + 1
-                uni(nu) = list(i)
+        read(unit=RESTARTFILE,fmt=*)(omega(2,i),i=1,nload+2)
+    end if   
+    close(unit=RESTARTFILE)
+    filename = 'restart.log'
+    command = 'mv -f '//trim(filename)//' '//trim(filename)//'.old'
+    call system(command)
+    !goto and format
+        10 STOP 'ERROR in load_restartinfo()'
+        1001 format(a8)
+end subroutine load_restartinfo
+
+!Constructs the tridiagonal matrix T from alpha and beta. If n is less than the current iteration,
+!make_tridiag will construct from the bottom right of the matrix up -- so the most current alpha and betas are always included
+!Input:  n -- dimension of T to construct
+!Output: T -- tridiagonal matrix, packed by columns in upper triangular form
+subroutine make_tmatrix(T,n)
+    use progdata, only: alpha,beta,maxstor,zerodp
+    use filedata, only: OUTFILE
+    implicit none
+    integer*8,intent(in)::n
+    real*8,intent(inout),dimension(n*(n+1)/2)::T
+    integer*8::i,j,k,counter
+    counter = 0
+    do i = 1,n
+        do j = 1,i
+            counter = counter + 1
+            if(j==i) then
+                T(counter) = alpha(j)
+            elseif(j==(i-1)) then
+                T(counter) = beta(j)
+            else
+                T(counter) = 0.
             end if
         end do
-    end subroutine union
+    end do
+    if(counter.ne.(n*(n+1)/2)) write(unit=OUTFILE,fmt=*)'POTENTIAL ERROR IN make_tmatrix - counter=',counter,', n=',n
+end subroutine make_tmatrix
+
+!Prints out a matrix to file
+subroutine matrix_write(itape,n,m,a,wformat)
+    integer*8, intent(in)                 	     :: n,itape,wformat
+    real*8,intent(in),dimension(n,n) :: a
+    integer*8                                    :: i,fstate
+    assign 1000 to fstate
+    if(wformat==1) assign 1001 to fstate
+    do i=1,n
+        write(unit=itape,fmt=fstate)i,(a(i,k),k=1,m)
+    end do
+    !format
+        1000 format(1x,i3,6f10.5,/(4x,6f10.5))
+        1001 format(1x,i3,6es14.5,/(4x,6es14.5))
+end subroutine matrix_write
+
+!Determines the total amount of memory the program will require in MB 
+subroutine memory_test(umem,rmem)
+    use progdata, only: dimen,nstates,nmodes,niter,nfunc,nstblks,orthog,maxstor,maxdisk,  &
+                        restartrun,myid,nproc,nseg,ordr,noterms,nztrms,nsteps
+    implicit none
+    real*8,intent(in)   ::umem
+    real*8,intent(inout)::rmem
+    integer*8::i,i1,i2,vsize,lchunk
+    real*8::ndoubles,nintegers
+    ndoubles = 0d0
+    nintegers = 0d0
+    lchunk = Ceiling(1.*dimen/nproc)+100 ! To account for slight differences in vector lengths
+    vsize = dimen*nstates
+    maxstor = int(1024*1024*nproc*maxdisk/(8*vsize)) - 3
+    !First we determine the memory required to hold the program data
+    ndoubles = ndoubles + 2*niter       ! for alpha, beta
+    ndoubles = ndoubles + niter*(niter+1)/2 !Tmat
+    ndoubles = ndoubles + niter*niter   !Ymat
+    ndoubles = ndoubles + 8*niter       !yval,bji,Tvals,escr
+    ndoubles = ndoubles + 2*(niter+1)   !omega
+    ndoubles = ndoubles + niter         !dpvec
+    ndoubles = ndoubles + nmodes*nmodes !Tmat
+    ndoubles = ndoubles + nmodes        !dvec
+    ndoubles = ndoubles + 2*nmodes      !aomega,bomega
+    !Storage required for lanczos vectors
+    ndoubles = ndoubles + 3*nstates*lchunk + 100 ! global arrays memory
+    !Storage required for scratch
+    ndoubles = ndoubles + nstates*lchunk + nstates*Ceiling(1.*lchunk/nseg) ! scr1 and scr2
+    nintegers = nintegers + nmodes !for shft
+    nintegers = nintegers + nmodes !for nfunc
+    nintegers = nintegers + Ceiling(2.*niter/100.) !loindex,roindex
+    i1 = sum(nztrms)
+    i2 = sum(nsteps)
+    nintegers = nintegers + i1*nstates*nstates     ! nzcoef
+    nintegers = nintegers + i1*2*nstates*nstates+1 ! nzblks
+    nintegers = nintegers + i1*2*ordr              ! nzindx
+    nintegers = nintegers + i1*ordr              ! bmax
+    nintegers = nintegers + i1                   ! nsteps
+    nintegers = nintegers + 2*i2*ordr            ! stype,basdif
+    nintegers = nintegers + nproc*nseg*i2        ! nelems
+    nintegers = nintegers + 2*nproc*nseg*i2*ordr ! basind, bstart
+    nintegers = nintegers + 2*nproc*nseg         ! rcshft
+    rmem = (ndoubles*8. + nintegers*8.)/(1024.*1024.) ! in MB
+end subroutine memory_test
+
+!Given a full symmetric matrix "a" packed by columns, return "m" in upper triangular form, packed by columns
+subroutine totriang(n,a,m)
+    integer*8,intent(in)					:: n
+    integer*8						:: i,j,ij,mindex
+    real*8,dimension(n*n),intent(in)		:: a
+    real*8,dimension(n*(n+1)/2),intent(inout)	:: m
+    mindex=1
+    do i = 1,n
+        do j = 1,i
+            ij = i+n*(j-1)
+            m(mindex) = a(ij)
+            mindex =  mindex + 1
+        end do
+    end do
+end subroutine totriang
+
+subroutine write_scrfile(n)
+    use progdata, only: alpha,beta
+    use filedata, only: SCRFILE
+    implicit none
+    integer*8,intent(in)  :: n
+    integer*8             :: i
+    rewind(unit=SCRFILE)
+    write(unit=SCRFILE,fmt=1000)n-1
+    write(unit=SCRFILE,fmt='(a)')' ALPHA COEFFICIENTS'
+    write(unit=SCRFILE,fmt=1001)alpha(1:n-1)
+    write(unit=SCRFILE,fmt='(a)')' BETA COEFFICIENTS'
+    write(unit=SCRFILE,fmt=1001)beta(0:n-1)
+    !format
+        1000 format('COEFFICIENT INFORMATION AFTER ',i4, ' ITERATIONS')
+        1001 format(4(f18.14))
+end subroutine write_scrfile
+
+!Creates an n-length array, initializes elements to val
+subroutine setarray(a,n,val)
+    integer*8,intent(in)                          :: n
+    real*8,intent(in)                 :: val
+    real*8,intent(inout),dimension(n) :: a
+    a=val
+end subroutine setarray
+
+!Creates an m x n matrix, intializes elements to val
+subroutine setmatrix(a,m,n,val)
+    integer*8, intent(in)                            :: m,n
+    real*8, intent(in)                   :: val
+    real*8, intent(inout),dimension(m,n) :: a
+    integer*8 				         :: i,j
+    a=val
+end subroutine setmatrix
+
+!Creates an n-length array, initializes elements to val
+subroutine setintarray(a,n,val)
+    integer*8, intent(in)                   :: n
+    integer*8, intent(in)                   :: val
+    integer*8, intent(inout),dimension(n)	:: a
+    integer*8	                        :: i
+    a=val
+end subroutine setintarray
+
+!Creates an m x n matrix, initializes elements to val
+subroutine setintmatrix(a,m,n,val)
+    integer*8, intent(in)                   :: m,n
+    integer*8, intent(in)                   :: val
+    integer*8, intent(inout),dimension(m,n)	:: a
+    integer*8 			        :: i,j
+    a=val
+end subroutine setintmatrix
+
+subroutine union(nl,list,nu,uni)
+    integer*8, intent(in)                   :: nl
+    integer*8, dimension(nl), intent(in)    :: list
+    integer*8, intent(inout)                :: nu
+    integer*8, dimension(nl), intent(inout) :: uni            
+    integer*8                               :: i,j,k
+    nu = 0
+    do i = 1,nl
+        k = 1
+        do j = 1,nu
+            if(list(i)==uni(j))then
+                k=0
+                exit
+            end if
+        end do
+        if(k==1)then
+            nu = nu + 1
+            uni(nu) = list(i)
+        end if
+    end do
+end subroutine union
 !------------------------------------ End ------------------------------------
 
 !---------------- All functions listed in alphabetical order -----------------
