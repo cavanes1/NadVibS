@@ -24,7 +24,7 @@
 !        - All functions are listed in alphabetical order
 
 module progdata
-    integer*8,parameter::zero=0,one=1,two=2,three=3
+    integer,parameter::zero=0,one=1,two=2,three=3
     real*8,parameter::zerodp=0d0,ELECMASSU=1822.888484929d0,&!Mass of a proton in atomic units
         MWAU2WAVE=5140.49227189d0,&!Conversion factor for mass weighted a.u. to cm-1, specifically, -> 219474.63*sqrt(1/ELECMASSU)
         AU2WAVE=219474.6313705d0,&!Conversion factor for a.u. to cm-1
@@ -35,7 +35,7 @@ module progdata
         firststep,&!Global orthogonalization, when performed, must be done on subsequent steps
         restartrun,&!TRUE if current run is restarted from previous results
         savevecs!TRUE if lanczos vectors are to be saved
-    integer*8::dimen,&!The product of the number of basis functions for each mode
+    integer::dimen,&!The product of the number of basis functions for each mode
         ordr,&!Order of the expansion
         nstblks,&!The number of unique state blocks
         nproc,&!Number of processors employed
@@ -57,7 +57,7 @@ module progdata
         q1,q2,q3,&!Global array handles
         ndiag,&!Number of diagonal terms
         nmatel!Length of hamiltonian mat. el. array
-    integer*8,allocatable,dimension(:)::nfunc,&!Array holding the number of harmonic oscillator functions for each node
+    integer,allocatable,dimension(:)::nfunc,&!Array holding the number of harmonic oscillator functions for each node
         noterms,&!Number of unique coupling terms per order
         shft,&!Offset array for indexing basis sets
         loindex,&!Index to start orthogonalizing when doing partial orthogonalization
@@ -65,22 +65,22 @@ module progdata
         istate,&!Initial state of the reference (i.e. anion ground state)
         nalltrms,&!Total number of terms in a processor batch
         nztrms!Number of non-zero terms per order
-    integer*8,allocatable,dimension(:,:)::nzindx,&!Index array of non-zero potential terms
+    integer,allocatable,dimension(:,:)::nzindx,&!Index array of non-zero potential terms
         nzblks!Block locations of non-zero potential terms
-    integer*8::ndblks!Number of blocks that have diagonal contributions, excluding (i,i), which do by definition
-    integer*8,allocatable,dimension(:)::dblks!Identity of those blocks
-    integer*8,dimension(:,:,:),allocatable::basind,bstart,rcshft!hterms: data for doing matrix vector product
-    integer*8,dimension(:,:),allocatable::nelems!Number of non-zero elements in a particular section of Hamiltonian
-    integer*8,dimension(:),allocatable::nsteps!Number of different matrix element types for a potential term
-    integer*8,dimension(:,:),allocatable::basdif,stype,&!Delta values between harmonic oscillator matrix elements
+    integer::ndblks!Number of blocks that have diagonal contributions, excluding (i,i), which do by definition
+    integer,allocatable,dimension(:)::dblks!Identity of those blocks
+    integer,dimension(:,:,:),allocatable::basind,bstart,rcshft!hterms: data for doing matrix vector product
+    integer,dimension(:,:),allocatable::nelems!Number of non-zero elements in a particular section of Hamiltonian
+    integer,dimension(:),allocatable::nsteps!Number of different matrix element types for a potential term
+    integer,dimension(:,:),allocatable::basdif,stype,&!Delta values between harmonic oscillator matrix elements
         bmax,&!b value at which counter resets. Does that help?  
         iordr!Array of indicies for location of h.o. matrix elements in homatel
-    integer*8,dimension(:),allocatable::dordr,&!Order of diagonal term i
+    integer,dimension(:),allocatable::dordr,&!Order of diagonal term i
         dmap,&!Location of term information for diagonal term i
         npirrep!Number of coordinates per irrep
-    integer*8,dimension(:,:),allocatable::vbounds,&!Batch sizes
+    integer,dimension(:,:),allocatable::vbounds,&!Batch sizes
         cpindx!Coupling block indices
-    integer*8,dimension(2)::lo,hi!Indices of the Lanczos vector a particular process is responsible for
+    integer,dimension(2)::lo,hi!Indices of the Lanczos vector a particular process is responsible for
     real*8,dimension(:),allocatable::concoef!dcoef: constant terms for each state block
     real*8,dimension(:,:),allocatable::nzcoef!Array of non-zero potential coefficients
     real*8::bjiconv,&!The degree of convergence before eigenvalues are printed -> 1e-(bijconv)
@@ -101,7 +101,7 @@ module progdata
 end module progdata
 
 module filedata!Contains info pertaining file I/O
-    integer*8,parameter::BASISFILE=28,&!File containing information parameters required to run program BASISFILE = basis.in
+    integer,parameter::BASISFILE=28,&!File containing information parameters required to run program BASISFILE = basis.in
         POTFILE=29,&!File containing potential information CONFILE = nadvibs.in
         OUTFILE=30,&!Majority of output information gets printed to OUTFILE = output.dat
         SCRFILE=31,&!A scratch file for printing out alpha and beta constants as the job progresses
@@ -121,7 +121,7 @@ program main
 #include "mpif.h"
 #include "global.fh"
     logical::status
-    integer*8::i,istat,nconverged
+    integer::i,istat,nconverged
     real*8::usermem,reqmem
     !---------- Initialize ----------
         !Default orthogonalization approach:
@@ -184,12 +184,12 @@ end program main
 !    -m $MEMORY : sets the memory avaiable to the program in MB
 !    -o [dir]   : location of the scratch directories 
 subroutine read_cmdline(ierr,memory,dir)
-    integer*8,intent(inout)			:: ierr
+    integer,intent(inout)			:: ierr
     real*8, intent(inout)       :: memory
     CHARACTER(len=100), intent(inout)     :: dir
     CHARACTER(2),dimension(2)		:: args = (/'-m','-o'/)
     CHARACTER(len=100)                    :: argbuf
-    integer*8				:: nargs,i,setmem,setout
+    integer				:: nargs,i,setmem,setout
     outdir = ""
     setmem = 0
     setout = 0
@@ -215,8 +215,8 @@ subroutine read_basis()!Read the basic input from file basis.in
     implicit none
 #include 'mpif.h'
 #include 'global.fh'
-    integer*8                      :: i,j,istat
-    integer*8                      :: numut
+    integer                      :: i,j,istat
+    integer                      :: numut
     if(myid.eq.0) call get_keywords()
     call ga_sync()
     call mpi_bcast(ordr,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
@@ -273,13 +273,13 @@ subroutine read_constants()!Read in the potential term information from standard
 #include 'mpif.h'
 #include 'global.fh'
     logical:: newterm,termchk
-    integer*8:: i,j,k,l,m,n,p,cnt,loc,nblk,ioff
-    integer*8:: istat
+    integer:: i,j,k,l,m,n,p,cnt,loc,nblk,ioff
+    integer:: istat
     real*8:: dval
-    integer*8,dimension(ordr):: otab,uniq
+    integer,dimension(ordr):: otab,uniq
     character*75:: commentline
     real*8,dimension(:,:,:),allocatable:: POTterms
-    integer*8,dimension(:,:,:),allocatable:: nztemp1
+    integer,dimension(:,:,:),allocatable:: nztemp1
     real*8,dimension(:,:,:),allocatable:: nztemp2
     ioff=0
     do i = 1,ordr
@@ -428,9 +428,9 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     use filedata, only: outdir,OUTFILE
     implicit none
     real*8, intent(in)    :: umem,rmem
-    integer*8                         :: i,j,k,l,pordr,ioff
-    integer*8,dimension(ordr)         :: otab
-    integer*8,dimension(nstblks,ordr) :: ntot
+    integer                         :: i,j,k,l,pordr,ioff
+    integer,dimension(ordr)         :: otab
+    integer,dimension(nstblks,ordr) :: ntot
     real*8,dimension(nmodes) :: dpvec
     open(unit=OUTFILE,file='output.dat',status='replace')
     rewind(unit=OUTFILE)  
@@ -553,13 +553,13 @@ subroutine initialize_elements()
 #include 'mpif.h'
 #include 'global.fh'
 #include 'mafdecls.fh'
-    integer*8		             :: i,j,k,l,m,n,ioff1,ioff2
-    integer*8                            :: nload,seglen,stack,heap,global,nall
-    integer*8                            :: istat,tcount,tmx,trm1,trm2,rlen
-    integer*8,dimension(2)               :: qlo,qhi
-    integer*8,dimension(nstblks,ordr)    :: ntcom,ntdet,ntsum
-    integer*8,dimension(nstates,nstates) :: dchk
-    integer*8,dimension(:),allocatable   :: ntot
+    integer		             :: i,j,k,l,m,n,ioff1,ioff2
+    integer                            :: nload,seglen,stack,heap,global,nall
+    integer                            :: istat,tcount,tmx,trm1,trm2,rlen
+    integer,dimension(2)               :: qlo,qhi
+    integer,dimension(nstblks,ordr)    :: ntcom,ntdet,ntsum
+    integer,dimension(nstates,nstates) :: dchk
+    integer,dimension(:),allocatable   :: ntot
     real*8                   :: mb2b,gauss_random,hoelem
     logical:: vecload,status,isdiag
     character*4:: procindex
@@ -851,8 +851,8 @@ subroutine update_lanczos(iter)
     implicit none
 #include 'global.fh'
 #include 'mafdecls.fh'
-    integer*8,intent(in)	:: iter
-    integer*8               :: tcount,tmx,istat,ireq
+    integer,intent(in)	:: iter
+    integer               :: tcount,tmx,istat,ireq
     call system_clock(iterstart,tcount,tmx)
     call GA_COPY(q2,q1)
     call GA_SCALE(q3,1./beta(iter-1))
@@ -880,15 +880,15 @@ subroutine Hv(iter)
     use filedata, only: OUTFILE
     implicit none
 #include 'global.fh'
-    integer*8,intent(in)                                       :: iter
-    integer*8                                                  :: i,j,k,l,m,n,ioff1,ioff2
-    integer*8                                                  :: ibat,nbat,rindx,cindx
-    integer*8                                                  :: tend,tcount,tmx
-    integer*8,dimension(1)                                     :: ld,qld
-    integer*8,dimension(2)                                     :: qlo,qhi
-    integer*8,dimension(nmodes)                                :: barray
-    integer*8,dimension(ordr)                                  :: inds,icnt,bval
-    integer*8,dimension(ordr+1)                                :: bcnt
+    integer,intent(in)                                       :: iter
+    integer                                                  :: i,j,k,l,m,n,ioff1,ioff2
+    integer                                                  :: ibat,nbat,rindx,cindx
+    integer                                                  :: tend,tcount,tmx
+    integer,dimension(1)                                     :: ld,qld
+    integer,dimension(2)                                     :: qlo,qhi
+    integer,dimension(nmodes)                                :: barray
+    integer,dimension(ordr)                                  :: inds,icnt,bval
+    integer,dimension(ordr+1)                                :: bcnt
     real*8                                         :: dkin,d1,dscale
     real*8,dimension(ordr)                         :: matel
     real*8,dimension(nstates,nstates)              :: dvals
@@ -1025,8 +1025,8 @@ subroutine lanczos_step(iter)
     use filedata, only: OUTFILE
     implicit none
 #include 'global.fh'
-    integer*8, intent(in)		:: iter
-    integer*8                       :: tend,tcount,tmx
+    integer, intent(in)		:: iter
+    integer                       :: tend,tcount,tmx
     real*8	        :: onedp
     onedp = 1.
     alpha(iter) = GA_DDOT(q2,q3)
@@ -1050,9 +1050,9 @@ subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the la
     use filedata, only: OUTFILE,ARCHIVE
     implicit none
 #include 'global.fh'
-    integer*8, intent(in)                  :: iter
-    integer*8                              :: i,j,k,istat,ireq
-    integer*8                              :: tend,tcount,tmx
+    integer, intent(in)                  :: iter
+    integer                              :: i,j,k,istat,ireq
+    integer                              :: tend,tcount,tmx
     real*8                     :: randnorm,dp,gauss_random
     real*8,dimension(2,iter-1) :: ocheck
     if(orthogexact) then
@@ -1117,10 +1117,10 @@ subroutine partial_orthog(iter)
     use filedata, only: OUTFILE,ARCHIVE
     implicit none
 #include 'global.fh'
-    integer*8,intent(in)		                        :: iter
-    integer*8			                        :: i,j,noindices,istat,ireq
-    integer*8                                               :: tend,tcount,tmx
-    integer*8,dimension(Ceiling(1.*iter/10))                :: oindices,lindices,rindices
+    integer,intent(in)		                        :: iter
+    integer			                        :: i,j,noindices,istat,ireq
+    integer                                               :: tend,tcount,tmx
+    integer,dimension(Ceiling(1.*iter/10))                :: oindices,lindices,rindices
     real*8		                        :: dpval,onedp,gauss_random
     real*8,dimension(Ceiling(1.*iter/10.),iter) :: dpvec
     onedp=1d0
@@ -1213,9 +1213,9 @@ subroutine make_restart(iter)!Dumps alpha and beta coefficents to dump.dat
     implicit none
 #include 'global.fh'
 #include 'mafdecls.fh'
-    integer*8,intent(in):: iter
-    integer*8:: rlen,tcount,tmx
-    integer*8:: istat,ireq
+    integer,intent(in):: iter
+    integer:: rlen,tcount,tmx
+    integer:: istat,ireq
     character*4::procindex
     call system_clock(totend,tcount,tmx)
     write(procindex,'(i4)')myid
@@ -1256,9 +1256,9 @@ subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
     use progdata, only: niter,dimen,nstates,alpha,beta,totstart,totend,aomega,nmodes,AU2WAVE,AU2EV,bjiconv
     use filedata, only: OUTFILE
     implicit none
-    integer*8,intent(in)     :: iter
-    integer*8                :: i,tcount,ngood,tmx,itotal
-    integer*8,dimension(iter):: Tsign
+    integer,intent(in)     :: iter
+    integer                :: i,tcount,ngood,tmx,itotal
+    integer,dimension(iter):: Tsign
     real*8                            :: dpval,thresh
     real*8, dimension(:,:),allocatable:: Teig
     real*8, dimension(:),allocatable  :: T
@@ -1334,13 +1334,13 @@ subroutine identify_roots(iter)
     use filedata, only: outdir,SOINFO,ROOTINFO,ARCHIVE,EIGVECS
     implicit none
 #include 'global.fh'
-    integer*8,intent(in)          :: iter
-    integer*8                     :: i,j,k,l,counter,nroots
-    integer*8,dimension(1)        :: ld
-    integer*8,dimension(2)        :: mxval,alo,ahi,blo,bhi
-    integer*8,dimension(nmodes)   :: barray
-    integer*8,dimension(2*idroots):: cindex
-    integer*8,dimension(iter)     :: Tsign
+    integer,intent(in)          :: iter
+    integer                     :: i,j,k,l,counter,nroots
+    integer,dimension(1)        :: ld
+    integer,dimension(2)        :: mxval,alo,ahi,blo,bhi
+    integer,dimension(nmodes)   :: barray
+    integer,dimension(2*idroots):: cindex
+    integer,dimension(iter)     :: Tsign
     real*8,dimension(iter)           :: Tvals,Tints,bji
     real*8,dimension(2*nstates)      :: dp
     real*8,dimension(idroots)        :: cmag,cphase
@@ -1496,7 +1496,7 @@ subroutine release_memory()
     implicit none
 #include 'global.fh'
     logical::lstat
-    integer*8::istat
+    integer::istat
     if(allocated(scr1))deallocate(scr1)
     deallocate(scr2)
     deallocate(concoef)
@@ -1543,16 +1543,16 @@ subroutine compute_allIndex()
     use progdata, only: myid,nseg,nproc,dimen,nmodes,nfunc,vbounds,ordr,nztrms,nzindx,lo,hi,ndiag,dordr,dmap, &
                         basind,basdif,bstart,rcshft,nelems,bmax,nsteps,zero,one,two,shft,nstblks,stype,nalltrms
     implicit none
-    integer*8                             :: i,j,k,l,m,n,p,indx,nindx,ioff1,ioff2
-    integer*8                             :: myrange,nbat,stride,ndir,ntot
-    integer*8                             :: cindx,rindx,cshft,rshft
-    integer*8                             :: ibat,ival
-    integer*8                             :: get_batch
-    integer*8,dimension(nmodes)           :: bc,br
-    integer*8,dimension(ordr)             :: sdir,sdif,inds,icnt
-    integer*8,dimension(ordr+1)           :: bcnt
-    integer*8,dimension(ordr,sum(nztrms)) :: smax
-    integer*8,dimension(5000)             :: buf1,buf2
+    integer                             :: i,j,k,l,m,n,p,indx,nindx,ioff1,ioff2
+    integer                             :: myrange,nbat,stride,ndir,ntot
+    integer                             :: cindx,rindx,cshft,rshft
+    integer                             :: ibat,ival
+    integer                             :: get_batch
+    integer,dimension(nmodes)           :: bc,br
+    integer,dimension(ordr)             :: sdir,sdif,inds,icnt
+    integer,dimension(ordr+1)           :: bcnt
+    integer,dimension(ordr,sum(nztrms)) :: smax
+    integer,dimension(5000)             :: buf1,buf2
     logical                             :: diagterm
     nbat = nproc*nseg
     ndiag = 0
@@ -1779,13 +1779,13 @@ end subroutine compute_allIndex
 subroutine compute_ritzsystem(T,n,bji,eigvals,eigvecs,eigints,eigsign)
     use progdata, only: one,beta
     implicit none
-    integer*8,intent(in)                        :: n
-    integer*8,dimension(n),intent(inout)        :: eigsign
+    integer,intent(in)                        :: n
+    integer,dimension(n),intent(inout)        :: eigsign
     real*8,dimension(n*(n+1)/2),intent(inout) :: T
     real*8,dimension(n),intent(inout)         :: eigvals,eigints,bji
     real*8,dimension(n,n),intent(inout)       :: eigvecs
     real*8,dimension(5*n)                     :: tbuf
-    integer*8                                   :: i
+    integer                                   :: i
     call givens(n,n,n,T,tbuf,eigvals,eigvecs)
     call setintarray(eigsign,n,one)
     do i = 1,n!Test the beta(ji)
@@ -1812,10 +1812,10 @@ end subroutine determine_epsilon
 subroutine write_ga(ga,ga_file,recstart)
     use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
     implicit none
-    integer*8, intent(in)   :: ga,ga_file,recstart
-    integer*8               :: i,j,currec
-    integer*8, dimension(2) :: lo,hi
-    integer*8, dimension(1) :: ld
+    integer, intent(in)   :: ga,ga_file,recstart
+    integer               :: i,j,currec
+    integer, dimension(2) :: lo,hi
+    integer, dimension(1) :: ld
     lo = (/ vbounds(myid*nseg+1,1),    1 /)
     hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
     ld = (/ hi(1) - lo(1) + 1 /)
@@ -1830,10 +1830,10 @@ end subroutine write_ga
 subroutine read_ga(ga,ga_file,recstart)
     use progdata, only: myid,nproc,nseg,nstates,vbounds,scr2
     implicit none
-    integer*8,intent(in)         :: ga,ga_file,recstart
-    integer*8                    :: i,j,currec
-    integer*8, dimension(2)      :: lo,hi
-    integer*8, dimension(1)      :: ld
+    integer,intent(in)         :: ga,ga_file,recstart
+    integer                    :: i,j,currec
+    integer, dimension(2)      :: lo,hi
+    integer, dimension(1)      :: ld
     real*8,parameter :: dscale = 1.
     lo = (/ vbounds(myid*nseg+1,1),    1 /)
     hi = (/ vbounds(myid*nseg+nseg,2), nstates /)
@@ -1849,10 +1849,10 @@ end subroutine read_ga
 !Reduce Matrix to upper triangular form
 subroutine gauss_elim(m,n,MATIN,MATOUT)
     implicit none
-    integer*8,intent(in):: m,n
+    integer,intent(in):: m,n
     real*8,dimension(m,n),intent(in)    :: MATIN
     real*8,dimension(m,n),intent(inout) :: MATOUT
-    integer*8:: i,j,k,maxr
+    integer:: i,j,k,maxr
     real*8:: val
     do i = 1,m
         do j = 1,n
@@ -1895,13 +1895,13 @@ subroutine generate_initialvec()
 #include 'mpif.h'
 #include 'global.fh'
     logical::fscaled
-    integer*8:: i,j,k,l,m,n,ierr,tmx,tcount,lbuf,stateindex
-    integer*8:: nlev,pstart,pindex,cstart,cindex,sindex,stindex
-    integer*8:: i2,ndo,ndone,npack,ninit,imode,get_procid,get_batch
-    integer*8,dimension(1)      :: ld,ldi
-    integer*8,dimension(nmodes) :: bvec,irrep
-    integer*8,dimension(nirreps):: irroff
-    integer*8,dimension(:),allocatable:: labels,nlterms
+    integer:: i,j,k,l,m,n,ierr,tmx,tcount,lbuf,stateindex
+    integer:: nlev,pstart,pindex,cstart,cindex,sindex,stindex
+    integer:: i2,ndo,ndone,npack,ninit,imode,get_procid,get_batch
+    integer,dimension(1)      :: ld,ldi
+    integer,dimension(nmodes) :: bvec,irrep
+    integer,dimension(nirreps):: irroff
+    integer,dimension(:),allocatable:: labels,nlterms
     real*8::detA,detT,d1,d2,fac
     real*8,dimension(nmodes):: acoef,bcoef,A2d,A3d
     real*8,dimension(5*nmodes)::Ascr
@@ -2345,9 +2345,9 @@ end subroutine generate_initialvec
 subroutine get_barray(stateindex,barray)
     use progdata, only: nmodes,shft
     implicit none
-    integer*8,intent(in)                     :: stateindex
-    integer*8,dimension(nmodes),intent(inout):: barray
-    integer*8                                :: i,stlabel,tmp
+    integer,intent(in)                     :: stateindex
+    integer,dimension(nmodes),intent(inout):: barray
+    integer                                :: i,stlabel,tmp
     stlabel = stateindex - 1
     if(stlabel.lt.0)stlabel=0
     do i = 1,nmodes
@@ -2360,9 +2360,9 @@ subroutine get_keywords()
     use progdata
     use filedata, only: BASISFILE
     implicit none
-    integer*8,dimension(10)          :: npirr
-    integer*8,dimension(100)         :: basis,initstate
-    integer*8                        :: i,itmp,restart,bconv,sodata,shiftref,get_restart_iter,reorthog
+    integer,dimension(10)          :: npirr
+    integer,dimension(100)         :: basis,initstate
+    integer                        :: i,itmp,restart,bconv,sodata,shiftref,get_restart_iter,reorthog
     real*8,dimension(10) :: weights
     NAMELIST /NADVIBS/         niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog, &
                                chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
@@ -2443,7 +2443,7 @@ subroutine load_restartinfo(reloadall)
     CHARACTER(80)::command
     CHARACTER(20)::filename
     CHARACTER(8) ::searchterm,currterm
-    integer*8::i,nload
+    integer::i,nload
     real*8::dpval
     open(unit=RESTARTFILE,file='restart.log',status='old')
     read(unit=RESTARTFILE,fmt='(a75)')commentline
@@ -2490,9 +2490,9 @@ subroutine make_tmatrix(T,n)
     use progdata, only: alpha,beta,maxstor,zerodp
     use filedata, only: OUTFILE
     implicit none
-    integer*8,intent(in)::n
+    integer,intent(in)::n
     real*8,intent(inout),dimension(n*(n+1)/2)::T
-    integer*8::i,j,k,counter
+    integer::i,j,k,counter
     counter = 0
     do i = 1,n
         do j = 1,i
@@ -2511,9 +2511,9 @@ end subroutine make_tmatrix
 
 !Prints out a matrix to file
 subroutine matrix_write(itape,n,m,a,wformat)
-    integer*8, intent(in)                 	     :: n,itape,wformat
+    integer, intent(in)                 	     :: n,itape,wformat
     real*8,intent(in),dimension(n,n) :: a
-    integer*8                                    :: i,fstate
+    integer                                    :: i,fstate
     assign 1000 to fstate
     if(wformat==1) assign 1001 to fstate
     do i=1,n
@@ -2531,7 +2531,7 @@ subroutine memory_test(umem,rmem)
     implicit none
     real*8,intent(in)   ::umem
     real*8,intent(inout)::rmem
-    integer*8::i,i1,i2,vsize,lchunk
+    integer::i,i1,i2,vsize,lchunk
     real*8::ndoubles,nintegers
     ndoubles = 0d0
     nintegers = 0d0
@@ -2571,8 +2571,8 @@ end subroutine memory_test
 
 !Given a full symmetric matrix "a" packed by columns, return "m" in upper triangular form, packed by columns
 subroutine totriang(n,a,m)
-    integer*8,intent(in)					:: n
-    integer*8						:: i,j,ij,mindex
+    integer,intent(in)					:: n
+    integer						:: i,j,ij,mindex
     real*8,dimension(n*n),intent(in)		:: a
     real*8,dimension(n*(n+1)/2),intent(inout)	:: m
     mindex=1
@@ -2589,8 +2589,8 @@ subroutine write_scrfile(n)
     use progdata, only: alpha,beta
     use filedata, only: SCRFILE
     implicit none
-    integer*8,intent(in)  :: n
-    integer*8             :: i
+    integer,intent(in)  :: n
+    integer             :: i
     rewind(unit=SCRFILE)
     write(unit=SCRFILE,fmt=1000)n-1
     write(unit=SCRFILE,fmt='(a)')' ALPHA COEFFICIENTS'
@@ -2604,7 +2604,7 @@ end subroutine write_scrfile
 
 !Creates an n-length array, initializes elements to val
 subroutine setarray(a,n,val)
-    integer*8,intent(in)                          :: n
+    integer,intent(in)                          :: n
     real*8,intent(in)                 :: val
     real*8,intent(inout),dimension(n) :: a
     a=val
@@ -2612,37 +2612,37 @@ end subroutine setarray
 
 !Creates an m x n matrix, intializes elements to val
 subroutine setmatrix(a,m,n,val)
-    integer*8, intent(in)                            :: m,n
+    integer, intent(in)                            :: m,n
     real*8, intent(in)                   :: val
     real*8, intent(inout),dimension(m,n) :: a
-    integer*8 				         :: i,j
+    integer 				         :: i,j
     a=val
 end subroutine setmatrix
 
 !Creates an n-length array, initializes elements to val
 subroutine setintarray(a,n,val)
-    integer*8, intent(in)                   :: n
-    integer*8, intent(in)                   :: val
-    integer*8, intent(inout),dimension(n)	:: a
-    integer*8	                        :: i
+    integer, intent(in)                   :: n
+    integer, intent(in)                   :: val
+    integer, intent(inout),dimension(n)	:: a
+    integer	                        :: i
     a=val
 end subroutine setintarray
 
 !Creates an m x n matrix, initializes elements to val
 subroutine setintmatrix(a,m,n,val)
-    integer*8, intent(in)                   :: m,n
-    integer*8, intent(in)                   :: val
-    integer*8, intent(inout),dimension(m,n)	:: a
-    integer*8 			        :: i,j
+    integer, intent(in)                   :: m,n
+    integer, intent(in)                   :: val
+    integer, intent(inout),dimension(m,n)	:: a
+    integer 			        :: i,j
     a=val
 end subroutine setintmatrix
 
 subroutine union(nl,list,nu,uni)
-    integer*8, intent(in)                   :: nl
-    integer*8, dimension(nl), intent(in)    :: list
-    integer*8, intent(inout)                :: nu
-    integer*8, dimension(nl), intent(inout) :: uni            
-    integer*8                               :: i,j,k
+    integer, intent(in)                   :: nl
+    integer, dimension(nl), intent(in)    :: list
+    integer, intent(inout)                :: nu
+    integer, dimension(nl), intent(inout) :: uni            
+    integer                               :: i,j,k
     nu = 0
     do i = 1,nl
         k = 1
@@ -2666,8 +2666,8 @@ end subroutine union
     !8 significant figures for N>=41
     real*8 function fac(N)
         implicit none
-        integer*8,intent(in)::N
-        integer*8::i
+        integer,intent(in)::N
+        integer::i
         real*8::temp
         select case(N)
             case(0)
@@ -2758,10 +2758,10 @@ end subroutine union
         end select
     end function fac
     
-    integer*8 function get_procid(index)
+    integer function get_procid(index)
         use progdata,only:myid,vbounds,nproc,nseg
         implicit none
-        integer*8,intent(inout)::index
+        integer,intent(inout)::index
         get_procid = 0
         do
             if(index.ge.vbounds(get_procid*nseg+1,1).and.index.le.vbounds(get_procid*nseg+nseg,2).or.get_procid.eq.nproc) exit
@@ -2773,11 +2773,11 @@ end subroutine union
         end if
     end function get_procid
     
-    integer*8 function get_batch(index)
+    integer function get_batch(index)
         use progdata,only:myid,vbounds,nproc,nseg
         implicit none
-        integer*8,intent(inout)::index
-        integer*8::batmax
+        integer,intent(inout)::index
+        integer::batmax
         batmax=nproc*nseg
         get_batch=1
         do
@@ -2791,11 +2791,11 @@ end subroutine union
     end function get_batch
     
     !Get the number of iterations run on previous from restart.log file
-    integer*8 function get_restart_iter()
+    integer function get_restart_iter()
         use filedata,only:RESTARTFILE  
         implicit none
         character*75::commentline
-        integer*8::dummy
+        integer::dummy
         open(unit=RESTARTFILE,file='restart.log',status='old')
             rewind(unit=RESTARTFILE)
             read(unit=RESTARTFILE,fmt='(a75)')commentline
@@ -2808,9 +2808,9 @@ end subroutine union
     !Returns the Nth Hermite polynomial evaluated at x
     real*8 function HermiteN(n,x)
         implicit none
-        integer*8,intent(in)::n
+        integer,intent(in)::n
         real*8,intent(in)::x
-        integer*8::i
+        integer::i
         real*8,dimension(3)::Hn
         Hn(1)=0d0
         Hn(2)=1d0
@@ -2825,9 +2825,9 @@ end subroutine union
     !Returns the Nth Hermite polynomial evaluated at x, where x is imaginary
     real*8 function HermiteNI(n,x)
         implicit none
-        integer*8,intent(in)::n
+        integer,intent(in)::n
         real*8,intent(in)::x
-        integer*8::k
+        integer::k
         real*8::fac
         HermiteNI=0d0
         do k=0,n/2
@@ -2839,8 +2839,8 @@ end subroutine union
     real*8 function href(nvals)
         use progdata, only: nmodes,aomega  
         implicit none
-        integer*8,dimension(nmodes),intent(in)::nvals
-        integer*8::i
+        integer,dimension(nmodes),intent(in)::nvals
+        integer::i
         href=0d0
         do i=1,nmodes
             href=href+(1d0*nvals(i)-0.5d0)*aomega(i)
@@ -2849,7 +2849,7 @@ end subroutine union
     
     real*8 function hoelem(inttype,a,b)
         implicit none
-        integer*8,intent(in)::inttype,a,b
+        integer,intent(in)::inttype,a,b
         real*8::m,n
         !Basis functions are indexed 1 - nfunc
         !However, n/m runs from 0 - (nfunc-1)
@@ -2914,11 +2914,11 @@ end subroutine union
     end function hoelem
     
     !Return the current number of converged eigenvalues
-    integer*8 function nconverged(n)
+    integer function nconverged(n)
         use progdata, only: bjiconv,beta
         implicit none
-        integer*8,intent(in)::n
-        integer*8::i
+        integer,intent(in)::n
+        integer::i
         real*8::eval,difeigs
         real*8,dimension(n*(n+1)/2)::T
         real*8,dimension(n,n)::eigvecs
@@ -2938,9 +2938,9 @@ end subroutine union
     end function nconverged
     
     !Returns the number of elements in the upper triangle of a n x n square matrix
-    integer*8 function numut(n,d)
+    integer function numut(n,d)
         implicit none
-        integer*8,intent(in)::n,d
+        integer,intent(in)::n,d
         real*8::fac
         numut = anint(fac(n-1+d)/(fac(n-1)*fac(d)))
     end function numut
@@ -2954,10 +2954,10 @@ end subroutine union
         gauss_random=mean+sigma*dsqrt(-2d0*dlog(r1))*dcos(6.283185307179586d0*r2)
     end function gauss_random
     
-    integer*8 function stateindex(bl,barray,boff)
-        integer*8,intent(inout)::bl
-        integer*8,dimension(bl),intent(inout)::barray,boff
-        integer*8::i
+    integer function stateindex(bl,barray,boff)
+        integer,intent(inout)::bl
+        integer,dimension(bl),intent(inout)::barray,boff
+        integer::i
         stateindex=1
         do i=bl,1,-1
             stateindex=stateindex+(barray(i)-1)*boff(i)
@@ -2968,11 +2968,11 @@ end subroutine union
 !---------- YARKONY ROUTINES: THESE MAY BE FOUND IN UTILITIES.COL.F ----------
     SUBROUTINE EVB(A,B,C,NB,NC)
     implicit none
-    integer*8,intent(in)                          :: NB,NC
+    integer,intent(in)                          :: NB,NC
     real*8,dimension(NC),intent(inout):: A
     real*8,dimension(NB),intent(in)   :: B
     real*8,dimension(NB,NC),intent(in):: C
-    integer*8                                     :: i,j
+    integer                                     :: i,j
     
     do i = 1,NC
      A(i) = 0.
@@ -2987,7 +2987,7 @@ end subroutine union
     ! EBCT multiplies B and the transpose of C and puts the resulting matrix in A
     !
     SUBROUTINE EBCT(A,B,C,NI,NK,NJ)
-    integer*8     			        :: NI,NK,NJ
+    integer     			        :: NI,NK,NJ
     real*8,dimension(NI,NJ)	:: A
     real*8,dimension(NI,NK)	:: B
     real*8,dimension(NJ,NK)	:: C
@@ -3010,7 +3010,7 @@ end subroutine union
     ! EBTC multiplies the transpose of B by C and puts the reuslting matrix in A
     !
     SUBROUTINE EBTC(A,B,C,NI,NK,NJ)
-      integer*8     			:: NI,NK,NJ
+      integer     			:: NI,NK,NJ
       real*8,dimension(NI,NJ)	:: A
       real*8,dimension(NK,NI)	:: B
       real*8,dimension(NK,NJ)	:: C
@@ -3033,7 +3033,7 @@ end subroutine union
     ! EBC multiplies B by C and puts the resulting matrix in A 
     !
     SUBROUTINE EBC(A,B,C,NI,NK,NJ)
-      integer*8     			:: NI,NK,NJ
+      integer     			:: NI,NK,NJ
       real*8,dimension(NI,NJ)	:: A
       real*8,dimension(NI,NK)	:: B
       real*8,dimension(NK,NJ)	:: C
