@@ -64,7 +64,7 @@ module progdata
         roindex,&!Index to stop orthogonalizing lanczos vector when doing P.O.
         istate,&!Initial state of the reference (i.e. anion ground state)
         nalltrms,&!Total number of terms in a processor batch
-        nztrms!Number of non-zero terms per order
+        nztrms!Number of non-zero unique terms per order (unique means this term consists of all different dimensions)
     integer,allocatable,dimension(:,:)::nzindx,&!Index array of non-zero potential terms
         nzblks!Block locations of non-zero potential terms
     integer::ndblks!Number of blocks that have diagonal contributions, excluding (i,i), which do by definition
@@ -140,8 +140,11 @@ program main
         call ga_sync()
         call read_basis()
         call read_constants()
-        call memory_test(usermem,reqmem)
-        if(myid==0) call print_basis(usermem,reqmem)
+        if(myid==0) then
+            call memory_test(usermem,reqmem)
+            if(usermem<reqmem) write(*,'(1x,A71)')'WARNING: estimated memory requirement is larger than user specification'
+            call print_basis(usermem,reqmem)
+        end if
     !------------- End --------------
 
     !----------- Run job ------------
@@ -203,7 +206,7 @@ subroutine read_cmdline(ierr,memory,dir)
     end do
 end subroutine read_cmdline
 
-subroutine read_basis()!Read the basic input from file basis.in
+subroutine read_basis()!Read main input file basis.in
     use progdata
     use filedata, only: BASISFILE
     implicit none
@@ -259,7 +262,7 @@ subroutine read_basis()!Read the basic input from file basis.in
     end do
 end subroutine read_basis
 
-subroutine read_constants()!Read in the potential term information from standard lanczos.in file
+subroutine read_constants()!Read in the potential term information from nadvibs.in
     use progdata, only: myid,ordr,nfunc,nmodes,nstates,neworigin,nstblks,nztrms,concoef,aomega,bomega, &
                         dvec,tmat,nzindx,nzblks,nzcoef,nztrms,noterms,ztoler,cpindx,AU2WAVE,zero,zerodp
     use filedata, only: POTFILE,OUTFILE
@@ -432,7 +435,7 @@ subroutine read_constants()!Read in the potential term information from standard
     deallocate(nztemp2)
 end subroutine read_constants
 
-subroutine print_basis(umem,rmem)!Print a summary of the basis set information from basis.in
+subroutine print_basis(umem,rmem)!Print a summary of job control information
     use progdata, only: ordr,natoms,nstates,nmodes,niter,dimen,orthog,orthogexact,maxstor,nfunc,ztoler, &
                         chkorthog,nproc,epsilon,maxdisk,statew,restartrun,iiter,soroots,bjiconv,nseg,   &
                         nirreps,npirrep,aomega,bomega,istate,nstblks,AU2WAVE,nzindx,nztrms,nzblks,zero,neworigin
@@ -479,7 +482,6 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
     write(unit=OUTFILE,fmt=1001)rmem
     write(unit=OUTFILE,fmt=1002)umem
-    if(rmem>umem) write(*,'(1x,A71)')'Warning: estimated memory requirement is larger than user specification'
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
     write(unit=OUTFILE,fmt='(A42,I16)')'  Dimensionality of a single State Vector:',dimen
     write(unit=OUTFILE,fmt='(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
@@ -2445,8 +2447,7 @@ subroutine get_keywords()
         1000 format(' SYMMETRY CONFLICT, ',i5,' != ',i5,' --> setting nirrep=1')
 end subroutine get_keywords
 
-!Extract all the information from a restart.log file
-subroutine load_restartinfo(reloadall)
+subroutine load_restartinfo(reloadall)!Extract all the information from restart.log file
     use progdata, only: alpha,beta,omega,orthog
     use filedata, only: RESTARTFILE
     implicit none
