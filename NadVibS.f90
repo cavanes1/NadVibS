@@ -134,42 +134,36 @@ program main
         usermem=30d0!Default memory = 30MB
         nproc=ga_nnodes()
         myid=ga_nodeid()
-        if(myid.eq.0) call read_cmdline(istat,usermem,outdir)
+        if(myid==0) call read_cmdline(istat,usermem,outdir)
         call mpi_bcast(usermem,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,istat)
         call mpi_bcast(outdir,100,MPI_CHARACTER,0,MPI_COMM_WORLD,istat)
         call ga_sync()
         call read_basis()
         call read_constants()
         call memory_test(usermem,reqmem)
-        if(myid.eq.0) call print_basis(usermem,reqmem)
+        if(myid==0) call print_basis(usermem,reqmem)
     !------------- End --------------
 
     !----------- Run job ------------
-        if(usermem.ge.reqmem) then
-            call initialize_elements()
-            !Run lanczos diagonalization
-            do i=iiter,niter
-                call update_lanczos(i)
-                call Hv(i)
-                call lanczos_step(i)
-                if(orthog.and.i.gt.1) then
-                    call set_omega(i)
-                    call partial_orthog(i)
-                end if
-            enddo
-            !Output
-            call make_restart(niter)
-            if(myid.eq.0) then
-              call compute_eigenvalues(niter)
-              call print_footer()
-            endif
-            !Clean up
-            call GA_SYNC()
-            if(idroots.gt.0.or.soroots.gt.0)call identify_roots(niter)
-            call release_memory()
-        else
-            if(myid.eq.0) write(*,*)'Program abort: insufficient memory'
-        endif
+        call initialize_elements()
+        !Run lanczos diagonalization
+        do i=iiter,niter
+            call update_lanczos(i)
+            call Hv(i)
+            call lanczos_step(i)
+            if(orthog.and.i.gt.1) then
+                call set_omega(i)
+                call partial_orthog(i)
+            end if
+        enddo
+        call make_restart(niter)!Output
+        if(myid.eq.0) then
+          call compute_eigenvalues(niter)
+          call print_footer()
+        end if
+        call GA_SYNC()!Clean up
+        if(idroots.gt.0.or.soroots.gt.0) call identify_roots(niter)
+        call release_memory()
     !------------- End --------------
 
     !---------- Clean up ------------
@@ -338,30 +332,31 @@ subroutine read_constants()!Read in the potential term information from standard
             m = 0
             call setintarray(otab,ordr,int(1))
     !Michael Schuurman's way of generating otab
-            !otab(j) = 0
-            !do k = 1,noterms(j)
-            !    l = j
-            !    do
-            !        if(l.eq.1) exit
-            !        if(otab(l).lt.otab(l-1)) exit
-            !        otab(l) = 1
-            !        l = l - 1
-            !    end do
-            !    otab(l) = otab(l) + 1
+            otab(j) = 0
+            do k = 1,noterms(j)
+                l = j
+                do
+                    if(l.eq.1) exit
+                    if(otab(l).lt.otab(l-1)) exit
+                    otab(l) = 1
+                    l = l - 1
+                end do
+                otab(l) = otab(l) + 1
     !My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
     !corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
-            otab(1)=0
-            do k = 1,noterms(j)
-                otab(1)=otab(1)+1!Add 1 to the 1st digit
-                do l=1,j-1!Carry to latter digits
-                    if(otab(l)>nmodes) then
-                        otab(l)=1
-                        otab(l+1)=otab(l+1)+1
-                    end if
-                end do
-                do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
-                    if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
-                end do
+            !otab(1)=0
+            !do k = 1,noterms(j)
+            !    otab(1)=otab(1)+1!Add 1 to the 1st digit
+            !    do l=1,j-1!Carry to latter digits
+            !        if(otab(l)>nmodes) then
+            !            otab(l)=1
+            !            otab(l+1)=otab(l+1)+1
+            !        end if
+            !    end do
+            !    do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
+            !        if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
+            !    end do
+    !Fuck, shitslide: potential term counting seems to suit only his specific definition
     !End of otab generation
                 if(myid.eq.0)print *,'otab =',otab(1:j)
                 m = m + 1
@@ -484,6 +479,7 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
     write(unit=OUTFILE,fmt=1001)rmem
     write(unit=OUTFILE,fmt=1002)umem
+    if(rmem>umem) write(*,'(1x,A71)')'Warning: estimated memory requirement is larger than user specification'
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
     write(unit=OUTFILE,fmt='(A42,I16)')'  Dimensionality of a single State Vector:',dimen
     write(unit=OUTFILE,fmt='(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
@@ -834,20 +830,20 @@ subroutine initialize_elements()
         call system_clock(totstart,tcount,tmx)
     1020 format('x=',i3,' nelems(1,x)=',i6,' nelems(2,x)=',i6)
     1000 format(/,3x,'Distribution of Lanczos vectors -------------------')
-    1001 format(/,3x,'PROCESS ',i3)
-    1002 format(3x,'Q1: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
-    1003 format(3x,'Q2: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
-    1004 format(3x,'Q3: ',i9,' -> ',i9,', ',i9,' -> ',i9,', TOTAL: ',i10)
+    1001 format(/,3x,'PROCESS',I4)
+    1002 format(3x,'Q1:',I15,' ->',I15,',',I15,' ->',I15,', TOTAL:',I19)
+    1003 format(3x,'Q2:',I15,' ->',I15,',',I15,' ->',I15,', TOTAL:',I19)
+    1004 format(3x,'Q3:',I15,' ->',I15,',',I15,' ->',I15,', TOTAL:',I19)
     1005 format(/,3x,'Segmentation Scheme -------------------------------')
-    1006 format(3x,'Seg ',i3,': ',i9,' -> ',i9,' LENGTH: ',i9)
+    1006 format(3x,'Seg',I4,':',I20,' ->',I20,' LENGTH:',I20)
     1007 format(/,3x,'---------------------------------------------------')
     1008 format(' ------- TERM COUNTING FOR VIBRONIC HAMILTONIAN --------')
-    1009 format('  TOT. NUM. ',i3,'-INDEX TERMS IN BLK ',i3,': ',i14)
+    1009 format('  TOT. NUM.',I4,'-INDEX TERMS IN BLK',I4,':',I20)
     1010 format('  !!!!!!!!!!!!!!!!!!!!!!!! ERROR !!!!!!!!!!!!!!!!!!!',/, &
                   '  DISAGREEMENT IN # OF ',i3,'-INDEX TERMS IN BLK ',i3,': predict=',i11,' != actual=',i11,/)
     1011 format('')
-    1012 format('  TOTAL NUMBER OF TERMS IN ALL BLOCKS:    ',i12)
-    1013 format('  Time Required: ',f14.3,' secs.')
+    1012 format('  TOTAL NUMBER OF TERMS IN ALL BLOCKS:',I20)
+    1013 format('  Time Required:',F15.3,' secs.')
     1014 format(/,'  >>>>>>>> Running Lanczos Iterations <<<<<<<<< '/)
 end subroutine initialize_elements
 
@@ -2582,7 +2578,7 @@ subroutine memory_test(umem,rmem)
     nintegers = nintegers + nproc*nseg*i2        ! nelems
     nintegers = nintegers + 2*nproc*nseg*i2*ordr ! basind, bstart
     nintegers = nintegers + 2*nproc*nseg         ! rcshft
-    rmem = (ndoubles*8. + nintegers*8.)/(1024.*1024.) ! in MB
+    rmem = (ndoubles*8d0+nintegers*8d0)/(1024d0*1024d0) ! in MB
 end subroutine memory_test
 
 !Given a full symmetric matrix "a" packed by columns, return "m" in upper triangular form, packed by columns
