@@ -495,7 +495,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
             do k = 1,i
                 pordr = pordr + nzindx(2*k,ioff+j)
             end do
-            print *,'ordr=',i,' j=',j,' pordr=',pordr
+            write(*,'(1x,A7,I3,A16,I7,A9,I3)')'order =',i,' serial number =',j,' porder =',pordr
             k = 1
             do
                 if(k.gt.nzblks(1,ioff+j)) exit
