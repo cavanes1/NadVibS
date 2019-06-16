@@ -337,7 +337,7 @@ subroutine read_constants()!Read in the potential term information from standard
             if(myid.eq.0)print *,'BLK=',i,' ORDR=',j
             m = 0
             call setintarray(otab,ordr,int(1))
-!Michael Schuurman's way of generating otab
+    !Michael Schuurman's way of generating otab
             !otab(j) = 0
             !do k = 1,noterms(j)
             !    l = j
@@ -348,8 +348,8 @@ subroutine read_constants()!Read in the potential term information from standard
             !        l = l - 1
             !    end do
             !    otab(l) = otab(l) + 1
-!My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
-!corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
+    !My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
+    !corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
             otab(1)=0
             do k = 1,noterms(j)
                 otab(1)=otab(1)+1!Add 1 to the 1st digit
@@ -362,8 +362,8 @@ subroutine read_constants()!Read in the potential term information from standard
                 do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
                     if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
                 end do
-!End of otab generation
-                if(myid.eq.0)print *,'otab=',otab
+    !End of otab generation
+                if(myid.eq.0)print *,'otab =',otab(1:j)
                 m = m + 1
                 call union(j,otab,cnt,uniq)
                 if(abs(POTterms(m,j,i)).ge.ztoler)then
@@ -487,7 +487,7 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
     write(unit=OUTFILE,fmt='(A42,I16)')'  Dimensionality of a single State Vector:',dimen
     write(unit=OUTFILE,fmt='(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
-    write(unit=OUTFILE,fmt='(a48,es10.4)')'  Machine precision for this architecture:      ',epsilon
+    write(unit=OUTFILE,fmt='(a42,es16.6)')'  Machine precision for this architecture:',epsilon
     ioff = 0
     call setintmatrix(ntot,nstblks,ordr,zero)
     do i = 1,ordr
