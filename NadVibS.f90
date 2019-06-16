@@ -262,7 +262,7 @@ subroutine read_basis()!Read main input file basis.in
     end do
 end subroutine read_basis
 
-subroutine read_constants()!Read in the potential term information from nadvibs.in
+subroutine read_constants()!Read nadvibs.in and number the potential term (Hd expansion)
     use progdata, only: myid,ordr,nfunc,nmodes,nstates,neworigin,nstblks,nztrms,concoef,aomega,bomega, &
                         dvec,tmat,nzindx,nzblks,nzcoef,nztrms,noterms,ztoler,cpindx,AU2WAVE,zero,zerodp
     use filedata, only: POTFILE,OUTFILE
@@ -270,7 +270,7 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
 #include 'mpif.h'
 #include 'global.fh'
     logical:: newterm,termchk
-    integer:: i,j,k,l,m,n,p,cnt,loc,nblk,ioff
+    integer:: i,j,k,l,n,p,cnt,loc,nblk,ioff
     integer:: istat
     real*8:: dval
     integer,dimension(ordr):: otab,uniq
@@ -332,7 +332,6 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
     do i = 1,nstblks
         do j = 1,ordr
             if(myid.eq.0)write(*,'(1x,A7,I3,A8,I3)')'Block =',i,' order =',j
-            m = 0
             call setintarray(otab,ordr,int(1))
     !Michael Schuurman's way of generating otab
             !otab(j) = 0
@@ -359,7 +358,6 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
                 do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
                     if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
                 end do
-    !Fuck, shitslide: potential term counting seems to suit only his specific definition
     !End of otab generation
                 if(myid.eq.0) then
                     write(*,'(1x,A6)',advance='no')'otab ='
@@ -368,9 +366,8 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
                     end do
                     write(*,'(I5)')otab(j)
                 end if
-                m = m + 1
                 call union(j,otab,cnt,uniq)
-                if(abs(POTterms(m,j,i)).ge.ztoler)then
+                if(abs(POTterms(k,j,i)).ge.ztoler)then
                     newterm = .true.
                     do n = 1,nztrms(cnt)
                         termchk = .true. 
@@ -380,7 +377,7 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
                         if(termchk)then
                             newterm=.false.
                             loc = n
-                            EXIT
+                            exit
                         end if
                     end do
                     if(newterm)then
@@ -391,12 +388,12 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
                         end do
                         nztemp1(cnt,nztrms(cnt),2*cnt+1) = 1
                         nztemp1(cnt,nztrms(cnt),2*cnt+2) = i
-                        nztemp2(cnt,nztrms(cnt),1) = POTterms(m,j,i)
+                        nztemp2(cnt,nztrms(cnt),1) = POTterms(k,j,i)
                     else
                         nblk = nztemp1(cnt,loc,2*cnt+1)+1
                         nztemp1(cnt,loc,2*cnt+1) = nblk
                         nztemp1(cnt,loc,2*cnt+1+nblk) = i
-                        nztemp2(cnt,loc,nblk) = POTterms(m,j,i)
+                        nztemp2(cnt,loc,nblk) = POTterms(k,j,i)
                     end if
                 end if
             end do
@@ -727,7 +724,7 @@ subroutine initialize_elements()
             do i = 1,ordr
                 j = mod(i,2)
                 do
-                    if(j.gt.ordr)EXIT
+                    if(j.gt.ordr)exit
                     if(nmax-j.gt.0)nmatel = nmatel + nmax-j
                     j = j + 2
                 end do
@@ -1613,7 +1610,7 @@ subroutine compute_allIndex()
             do k = 1,i
                 if(mod(smax(k,ioff1+j),2).ne.0)then
                     diagterm = .false.
-                    EXIT
+                    exit
                 end if
             end do
             if(diagterm)then
@@ -2806,7 +2803,7 @@ end subroutine union
         batmax=nproc*nseg
         get_batch=1
         do
-            if((index.ge.vbounds(get_batch,1).and.index.le.vbounds(get_batch,2)).or.get_batch.gt.batmax)EXIT
+            if((index.ge.vbounds(get_batch,1).and.index.le.vbounds(get_batch,2)).or.get_batch.gt.batmax)exit
             get_batch=get_batch+1
         end do
         if(get_batch.gt.nproc*nseg)then
@@ -2962,7 +2959,7 @@ end subroutine union
         end do
     end function nconverged
     
-    !Returns the number of elements in the upper triangle of a n x n square matrix
+    !Returns the number of possibilities for picking out d balls of out n (with back)
     integer function numut(n,d)
         implicit none
         integer,intent(in)::n,d

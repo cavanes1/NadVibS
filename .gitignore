@@ -3,4 +3,5 @@ NadVibS.exe
 *.mod
 avx/NadVibS.f90
 .vscode/
+Back up/
 *.in
