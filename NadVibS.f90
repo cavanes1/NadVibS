@@ -331,7 +331,7 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
     end if
     do i = 1,nstblks
         do j = 1,ordr
-            if(myid.eq.0)print *,'BLK=',i,' ORDR=',j
+            if(myid.eq.0)write(*,'(1x,A7,I3,A8,I3)')'Block =',i,' order =',j
             m = 0
             call setintarray(otab,ordr,int(1))
     !Michael Schuurman's way of generating otab
@@ -361,7 +361,13 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
             !    end do
     !Fuck, shitslide: potential term counting seems to suit only his specific definition
     !End of otab generation
-                if(myid.eq.0)print *,'otab =',otab(1:j)
+                if(myid.eq.0) then
+                    write(*,'(1x,A6,)',advance='no')'otab ='
+                    do l=1,j-1
+                        write(*,'(I5)',advance='no')otab(l)
+                    end do
+                    write(*,'(I5)')otab(j)
+                end if
                 m = m + 1
                 call union(j,otab,cnt,uniq)
                 if(abs(POTterms(m,j,i)).ge.ztoler)then
@@ -429,7 +435,11 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
         end do
         ioff = ioff + nztrms(i)
     end do
-    print *,'NZTERMS: ',nztrms
+    write(*,'(1x,A15)',advance='no')'Non-zero terms:'
+    do i=1,ordr-1
+        write(*,'(I10)',advance='no')nztrms(i)
+    end do
+    write(*,'(I10)')nztrms(ordr)
     deallocate(POTterms)
     deallocate(nztemp1)
     deallocate(nztemp2)
@@ -495,7 +505,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
             do k = 1,i
                 pordr = pordr + nzindx(2*k,ioff+j)
             end do
-            write(*,'(1x,A7,I3,A16,I7,A9,I3)')'order =',i,' serial number =',j,' porder =',pordr
+            write(*,'(1x,A7,I3,A17,I7,A10,I3)')'order =',i,', serial number =',j,', porder =',pordr
             k = 1
             do
                 if(k.gt.nzblks(1,ioff+j)) exit
