@@ -362,7 +362,7 @@ subroutine read_constants()!Read in the potential term information from nadvibs.
     !Fuck, shitslide: potential term counting seems to suit only his specific definition
     !End of otab generation
                 if(myid.eq.0) then
-                    write(*,'(1x,A6,)',advance='no')'otab ='
+                    write(*,'(1x,A6)',advance='no')'otab ='
                     do l=1,j-1
                         write(*,'(I5)',advance='no')otab(l)
                     end do
