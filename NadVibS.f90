@@ -337,16 +337,32 @@ subroutine read_constants()!Read in the potential term information from standard
             if(myid.eq.0)print *,'BLK=',i,' ORDR=',j
             m = 0
             call setintarray(otab,ordr,int(1))
-            otab(j) = 0
+!Michael Schuurman's way of generating otab
+            !otab(j) = 0
+            !do k = 1,noterms(j)
+            !    l = j
+            !    do
+            !        if(l.eq.1) exit
+            !        if(otab(l).lt.otab(l-1)) exit
+            !        otab(l) = 1
+            !        l = l - 1
+            !    end do
+            !    otab(l) = otab(l) + 1
+!My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
+!corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
+            otab(1)=0
             do k = 1,noterms(j)
-                l = j
-                do
-                    if(l.eq.1) exit
-                    if(otab(l).lt.otab(l-1)) exit
-                    otab(l) = 1
-                    l = l - 1
+                otab(1)=otab(1)+1!Add 1 to the 1st digit
+                do l=1,j-1!Carry to latter digits
+                    if(otab(l)>nmodes) then
+                        otab(l)=1
+                        otab(l+1)=otab(l+1)+1
+                    end if
                 end do
-                otab(l) = otab(l) + 1
+                do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
+                    if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
+                end do
+!End of otab generation
                 if(myid.eq.0)print *,'otab=',otab
                 m = m + 1
                 call union(j,otab,cnt,uniq)
@@ -444,23 +460,23 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     write(unit=OUTFILE,fmt='(a)')   ' '
     write(unit=OUTFILE,fmt='(a)')   'Input parameters read from BASIS.IN:'
     write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of atoms:                                   ',natoms
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of electronic states:                       ',nstates
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Order of the expansion:                            ',ordr
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of vibrational modes:                       ',nmodes
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of irreducible representations              ',nirreps
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of atoms:                              ',natoms
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of electronic states:                  ',nstates
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Order of the expansion:                       ',ordr
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of vibrational modes:                  ',nmodes
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of irreducible representations         ',nirreps
     write(unit=OUTFILE,fmt=1003)npirrep
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Lanczos iterations:                      ',niter
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of processors used in execution:            ',nproc
-    write(unit=OUTFILE,fmt='(a48,es10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
-    if(restartrun)write(unit=OUTFILE,fmt='(a50,i5)')'  Restarting Lanczos Procedure on step:           ',iiter
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Lanczos iterations:                 ',niter
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of processors used in execution:       ',nproc
+    write(unit=OUTFILE,fmt='(A48,ES10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
+    write(unit=OUTFILE,fmt='(A53,I5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
+    if(restartrun)write(unit=OUTFILE,fmt='(A48,I10)')'  Restarting Lanczos Procedure on step:         ',iiter
     write(unit=OUTFILE,fmt='(a53,l5)')'  Perform lanczos vector re-orthogonalization:       ',orthog
     if(orthog) then
         write(unit=OUTFILE,fmt='(a53,l5)')'    - exact dot products for vector orthog.:         ',orthogexact
-        if(.not.orthogexact) write(unit=OUTFILE,fmt='(a53,i5)')'    - compute exact orthog. every X iterations:      ',chkorthog
+        if(.not.orthogexact) write(unit=OUTFILE,fmt='(A48,I10)')'    - compute exact orthog. every X iterations: ',chkorthog
         write(unit=OUTFILE,fmt='(a50,f8.1)')'    - max. amount of disk available for storage:  ',maxdisk
-        write(unit=OUTFILE,fmt='(a50,i8)')'    - max. number of lanczos vectors to store:    ',maxstor
+        write(unit=OUTFILE,fmt='(A48,I10)')'    - max. number of lanczos vectors to store:  ',maxstor
     end if
     do i = 1,nstates
         write(unit=OUTFILE,fmt=1000)i,statew(i)
@@ -468,9 +484,9 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
     write(unit=OUTFILE,fmt=1001)rmem
     write(unit=OUTFILE,fmt=1002)umem
-    write(unit=OUTFILE,fmt='(a53,i5)')'  Number of Segements per Lanczos Vector:             ',nseg
-    write(unit=OUTFILE,fmt='(a46,i12)')'  Dimensionality of a single State Vector:    ',dimen
-    write(unit=OUTFILE,fmt='(a46,i12)')'  Total Dimensionality of H matrix:           ',nstates*dimen
+    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
+    write(unit=OUTFILE,fmt='(A42,I16)')'  Dimensionality of a single State Vector:',dimen
+    write(unit=OUTFILE,fmt='(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
     write(unit=OUTFILE,fmt='(a48,es10.4)')'  Machine precision for this architecture:      ',epsilon
     ioff = 0
     call setintmatrix(ntot,nstblks,ordr,zero)
@@ -533,11 +549,11 @@ subroutine print_basis(umem,rmem)!Print a summary of the basis set information f
     end do
     write(unit=OUTFILE,fmt='(a)') ''
     1000 format('  Initial weight of reference state ',i2,':              ',f5.2)
-    1001 format('  Total Memory Required (GA+NADVIBS) (MB):        ',f8.1)
-    1002 format('  Memory Available (MB):                          ',f8.1)
+    1001 format('  Total Memory Required (GA+NADVIBS) (MB):',f16.0)
+    1002 format('  Memory Available (MB):                  ',f16.0)
     1003 format('  Number of modes per irrep:                         ',8(i3))
     1004 format(4x,i3,i7,f12.3)
-    1005 format('  Block ',i3,':',8('  ',i4,'   '))
+    1005 format('  Block ',i3,':',8(I6,'   '))
     1006 format('  ORDER:    ',8('    ',i2,'   '))
     1007 format('  Scratch files written to (blank if current directory): ',a100)
 end subroutine print_basis
@@ -2637,6 +2653,8 @@ subroutine setintmatrix(a,m,n,val)
     a=val
 end subroutine setintmatrix
 
+!Input:  nl order array list
+!Output: nl order array uni, uni(1:nu) contains the unique elements in list
 subroutine union(nl,list,nu,uni)
     integer, intent(in)                   :: nl
     integer, dimension(nl), intent(in)    :: list

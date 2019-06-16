@@ -1,8 +1,6 @@
 NadVibS.exe
 *.a
 *.mod
+avx/NadVibS.f90
 .vscode/
 *.in
-temp*
-ReadOnly.f90
-avx/NadVibS.f90
