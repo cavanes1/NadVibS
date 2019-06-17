@@ -333,32 +333,21 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
         do j = 1,ordr
             if(myid.eq.0)write(*,'(1x,A7,I3,A8,I3)')'Block =',i,' order =',j
             call setintarray(otab,ordr,int(1))
-    !My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
-    !corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
-            !otab(1)=0
-            !do k = 1,noterms(j)
-            !    otab(1)=otab(1)+1!Add 1 to the 1st digit
-            !    do l=1,j-1!Carry to latter digits
-            !        if(otab(l)>nmodes) then
-            !            otab(l)=1
-            !            otab(l+1)=otab(l+1)+1
-            !        end if
-            !    end do
-            !    do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
-            !        if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
-            !    end do
-    !Michael Schuurman's way of generating otab
-            otab(j) = 0
+            !My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
+            !corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
+            otab(1)=0
             do k = 1,noterms(j)
-                l = j
-                do
-                    if(l.eq.1) exit
-                    if(otab(l).lt.otab(l-1)) exit
-                    otab(l) = 1
-                    l = l - 1
+                otab(1)=otab(1)+1!Add 1 to the 1st digit
+                do l=1,j-1!Carry to latter digits
+                    if(otab(l)>nmodes) then
+                        otab(l)=1
+                        otab(l+1)=otab(l+1)+1
+                    end if
                 end do
-                otab(l) = otab(l) + 1
-    !End of otab generation
+                do l=j-1,1,-1!Modify to satisfy former digit >= latter digit
+                    if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
+                end do
+                !End of otab generation
                 if(myid.eq.0) then
                     write(*,'(1x,A6)',advance='no')'otab ='
                     do l=1,j-1
