@@ -4,8 +4,8 @@
 #                                    #
 ######################################
 
-compiler = mpif90
-GAInc  = /home-4/yshen57@jhu.edu/work/yshen/Software/ga-5-4/include
+compiler = mpifort
+GAInc  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5-4_i8/include
 MPIInc = /software/apps/mpi/openmpi/3.1/intel/18.0/include
 src = NadVibS.f90
 exe = NadVibS.exe
@@ -16,5 +16,4 @@ $(exe): $(src)
 	$(compiler) $(flag) $^ libcomex.a libga.a libarmci.a -o $(exe)
 
 clean:
-	rm $(exe)
 	rm *.mod
