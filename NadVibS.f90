@@ -117,7 +117,7 @@ module filedata!Contains info pertaining file I/O
     subroutine ShowTime()!Show date hour minute second
         integer,dimension(8)::time
         call date_and_time(values=time)
-        write(unit=OUTFILE,*)time(3),'d',time(5),':',time(6),':',time(7)
+        write(unit=OUTFILE,fmt='(a)')time(3),'d',time(5),':',time(6),':',time(7)
     end subroutine ShowTime
 end module filedata
 
@@ -1338,7 +1338,7 @@ end subroutine compute_eigenvalues
 subroutine print_footer()
     use filedata, only: OUTFILE
     write(unit=OUTFILE,fmt='(a)') ' '
-    call ShowTime(); write(unit=OUTFILE,*)'Mission complete'
+    call ShowTime(); write(unit=OUTFILE,fmt='(a)')'Mission complete'
     close(unit=OUTFILE)
 end subroutine print_footer
 
