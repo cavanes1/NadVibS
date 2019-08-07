@@ -18,8 +18,8 @@ NadVibS requires 2 input files: nadvibs.in & basis.in, an example is provided. n
 * shiftref  = 0, do not use new origin; else, use new origin
 * niter     = number of lanczos iterations to be performed
 * bconv     = (default 1) -lg( convergence tolerence for eigen value )
-* idroot    = (default 0) how many of the lead contributors to a vibronic level to identify
-* soroot    = number of roots to compute spin orbit parameters
+* idroots   = (default 0) how many of the lead contributors to a vibronic level to identify
+* soroots   = number of roots to compute spin orbit parameters
 * reorthog  = (default 0) >0, request re-orthogonalization; >1, exact dot products are to be used to monitor lanczos vector orthogonality 
 * chkorthog = (default 100) every how many iterations compute exact dot products if using recurrence
 * nseg      = (default 1) number of segements to divide lanczos vector into
