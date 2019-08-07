@@ -101,6 +101,7 @@ module progdata
 end module progdata
 
 module filedata!Contains info pertaining file I/O
+    implicit none
     integer,parameter::BASISFILE=28,&!File containing information parameters required to run program BASISFILE = basis.in
         POTFILE=29,&!File containing potential information CONFILE = nadvibs.in
         OUTFILE=30,&!Majority of output information gets printed to OUTFILE = output.dat
@@ -112,6 +113,12 @@ module filedata!Contains info pertaining file I/O
         SOINFO=36,&!File containing spinorbit parameters
         EIGVECS=37!File containing eigenvectors of H
     character*100::outdir!Director to output text files to
+    contains
+    subroutine ShowTime()!Show date hour minute second
+        integer,dimension(8)::time
+        call date_and_time(values=time)
+        write(unit=OUTFILE,*)time(3),'d',time(5),':',time(6),':',time(7)
+    end subroutine ShowTime
 end module filedata
 
 program main
@@ -443,15 +450,14 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     integer,dimension(nstblks,ordr) :: ntot
     real*8,dimension(nmodes) :: dpvec
     open(unit=OUTFILE,file='output.dat',status='replace')
-    rewind(unit=OUTFILE)  
-    write(unit=OUTFILE,fmt='(a)')   'PNADVIBS.X'
-    write(unit=OUTFILE,fmt='(a)')   'VIBRONIC ENERGY LEVEL PROGRAM EMPLOYING A LANCZOS SOLVER' 
-    write(unit=OUTFILE,fmt='(a)')   '--------------------------------------------------------'
-    write(unit=OUTFILE,fmt='(a)')   'Michael Schuurman'
-    write(unit=OUTFILE,fmt='(a)')   ' '
-    write(unit=OUTFILE,fmt='(a)')	  ' '
+    rewind(unit=OUTFILE)
+    !NadVibS: nonadiabatic vibrational spectrum simulation package
+!Originate from NADVIBS.X by Michael Schuurman 2007
+    write(unit=OUTFILE,fmt='(a)')   'NadVibS: nonadiabatic vibrational spectrum simulation package'
+    write(unit=OUTFILE,fmt='(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
+    write(unit=OUTFILE,fmt='(a)')   'Yifan Shen 2019'
+    call ShowTime()
     write(unit=OUTFILE,fmt=1007)adjustl(outdir)
-    write(unit=OUTFILE,fmt='(a)')   ' '
     write(unit=OUTFILE,fmt='(a)')   'Input parameters read from BASIS.IN:'
     write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of atoms:                              ',natoms
@@ -549,7 +555,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     1004 format(4x,i3,i7,f12.3)
     1005 format('  Block ',i3,':',8(I6,'   '))
     1006 format('  ORDER:    ',8('    ',i2,'   '))
-    1007 format('  Scratch files written to (blank if current directory): ',a100)
+    1007 format('  Scratch files written to: ',a100)
 end subroutine print_basis
 
 subroutine initialize_elements()
@@ -1332,7 +1338,7 @@ end subroutine compute_eigenvalues
 subroutine print_footer()
     use filedata, only: OUTFILE
     write(unit=OUTFILE,fmt='(a)') ' '
-    write(unit=OUTFILE,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
+    call ShowTime(); write(unit=OUTFILE,*)'Mission complete'
     close(unit=OUTFILE)
 end subroutine print_footer
 
