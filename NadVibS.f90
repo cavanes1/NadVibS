@@ -442,7 +442,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     use progdata, only: ordr,natoms,nstates,nmodes,niter,dimen,orthog,orthogexact,maxstor,nfunc,ztoler, &
                         chkorthog,nproc,epsilon,maxdisk,statew,restartrun,iiter,soroots,bjiconv,nseg,   &
                         nirreps,npirrep,aomega,bomega,istate,nstblks,AU2WAVE,nzindx,nztrms,nzblks,zero,neworigin
-    use filedata, only: outdir,OUTFILE
+    use filedata, only: outdir,OUTFILE,ShowTime
     implicit none
     real*8, intent(in)    :: umem,rmem
     integer                         :: i,j,k,l,pordr,ioff
@@ -1336,7 +1336,7 @@ subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
 end subroutine compute_eigenvalues
 
 subroutine print_footer()
-    use filedata, only: OUTFILE
+    use filedata, only: OUTFILE,ShowTime
     write(unit=OUTFILE,fmt='(a)') ' '
     call ShowTime(); write(unit=OUTFILE,fmt='(a)')'Mission complete'
     close(unit=OUTFILE)
