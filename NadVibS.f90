@@ -150,6 +150,7 @@ program main
         if(myid==0) then
             call memory_test(usermem,reqmem)
             if(usermem<reqmem) write(*,'(1x,A71)')'Warning: estimated memory requirement is larger than user specification'
+            write(*,*)'Scratch files written to: '//adjustl(outdir)
             call print_basis(usermem,reqmem)
         end if
     !------------- End --------------
@@ -455,7 +456,6 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     write(unit=OUTFILE,fmt='(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
     write(unit=OUTFILE,fmt='(a)')   'Yifan Shen 2019'
     call ShowTime()
-    write(unit=OUTFILE,fmt=1007)adjustl(outdir)
     write(unit=OUTFILE,fmt='(a)')   'Input parameters read from basis.in:'
     write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of atoms:                              ',natoms
@@ -553,7 +553,6 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     1004 format(4x,i3,i7,f12.3)
     1005 format('  Block ',i3,':',8(I6,'   '))
     1006 format('  ORDER:    ',8('    ',i2,'   '))
-    1007 format('  Scratch files written to: ',a100)
 end subroutine print_basis
 
 subroutine initialize_elements()
