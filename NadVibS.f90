@@ -117,7 +117,7 @@ module filedata!Contains info pertaining file I/O
     subroutine ShowTime()!Show date hour minute second
         integer,dimension(8)::time
         call date_and_time(values=time)
-        write(unit=OUTFILE,fmt='(a)')time(3),'d',time(5),':',time(6),':',time(7)
+        write(unit=OUTFILE,fmt='(I4,1x,A4,1x,I2,1x,A5,1x,I2,1x,A3,1x,I2,A1,I2,A1,I2)')time(1),'year',time(2),'month',time(3),'day',time(5),':',time(6),':',time(7)
     end subroutine ShowTime
 end module filedata
 
@@ -179,7 +179,7 @@ program main
     !---------- Clean up ------------
         call ga_terminate()
         call mpi_finalize(istat)
-        write(*,*)'Mission complete'
+        if(myid.eq.0) write(*,*)'Mission complete'
     !------------- End --------------
 end program main
 
