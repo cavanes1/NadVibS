@@ -7,7 +7,7 @@
 !        - progdata contains predominantly arithmetic variables for the running of the lanczos program
 !        - filedata contains variables used for file I/O
 !    program main
-!        - NADVIBS program loop
+!        - NadVibS program loop
 !        - this is the driver for the program. The lanczos iterations are run from this uppermost loop
 !    Top level subroutines
 !        - read_cmdline,read_basis,print_basis,read_lanczos,allocate_memory,intialize_elements,
@@ -451,14 +451,12 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     real*8,dimension(nmodes) :: dpvec
     open(unit=OUTFILE,file='output.dat',status='replace')
     rewind(unit=OUTFILE)
-    !NadVibS: nonadiabatic vibrational spectrum simulation package
-!Originate from NADVIBS.X by Michael Schuurman 2007
     write(unit=OUTFILE,fmt='(a)')   'NadVibS: nonadiabatic vibrational spectrum simulation package'
     write(unit=OUTFILE,fmt='(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
     write(unit=OUTFILE,fmt='(a)')   'Yifan Shen 2019'
     call ShowTime()
     write(unit=OUTFILE,fmt=1007)adjustl(outdir)
-    write(unit=OUTFILE,fmt='(a)')   'Input parameters read from BASIS.IN:'
+    write(unit=OUTFILE,fmt='(a)')   'Input parameters read from basis.in:'
     write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of atoms:                              ',natoms
     write(unit=OUTFILE,fmt='(A48,I10)')'  Number of electronic states:                  ',nstates
@@ -549,7 +547,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     end do
     write(unit=OUTFILE,fmt='(a)') ''
     1000 format('  Initial weight of reference state ',i2,':              ',f5.2)
-    1001 format('  Total Memory Required (GA+NADVIBS) (MB):',f16.0)
+    1001 format('  Total Memory Required (GA+NadVibS) (MB):',f16.0)
     1002 format('  Memory Available (MB):                  ',f16.0)
     1003 format('  Number of modes per irrep:                         ',8(i3))
     1004 format(4x,i3,i7,f12.3)
