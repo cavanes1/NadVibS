@@ -149,7 +149,7 @@ program main
         call read_constants()
         if(myid==0) then
             call memory_test(usermem,reqmem)
-            if(usermem<reqmem) write(*,'(1x,A71)')'WARNING: estimated memory requirement is larger than user specification'
+            if(usermem<reqmem) write(*,'(1x,A71)')'Warning: estimated memory requirement is larger than user specification'
             call print_basis(usermem,reqmem)
         end if
     !------------- End --------------
