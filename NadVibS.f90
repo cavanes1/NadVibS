@@ -105,7 +105,6 @@ module filedata!Contains info pertaining file I/O
     integer,parameter::BASISFILE=28,&!File containing information parameters required to run program BASISFILE = basis.in
         POTFILE=29,&!File containing potential information CONFILE = nadvibs.in
         OUTFILE=30,&!Majority of output information gets printed to OUTFILE = output.dat
-        SCRFILE=31,&!A scratch file for printing out alpha and beta constants as the job progresses
         RESTARTFILE=32,&!File required to initiate a restart of lanczos algorithm
         ROOTINFO=33,&!Created only if idroots > 0
         ARCHIVE=34,&!DRA handle for archive file
@@ -561,7 +560,7 @@ subroutine initialize_elements()
                         firststep,restartrun,maxdisk,nseg,vbounds,savevecs,ordr,cpindx,nstblks,nztrms,    &
                         nzindx,stype,nsteps,nelems,nmax,homatel,iordr,nzblks,basdif,lo,hi,concoef,nmatel, &
                         ndiag,dmap,ndblks,dblks
-    use filedata, only: outdir,OUTFILE,SCRFILE,QRESTART,ARCHIVE
+    use filedata, only: outdir,OUTFILE,QRESTART,ARCHIVE
     implicit none
 #include 'mpif.h'
 #include 'global.fh'
@@ -815,7 +814,6 @@ subroutine initialize_elements()
         end if
     call system_clock(totend,tcount,tmx)
     if(myid.eq.0) then
-        open(SCRFILE,file='scratch.dat',status='replace')
         write(OUTFILE,'(a)') ' '
         write(OUTFILE,'(a)') '  Initialization complete.'
         write(OUTFILE,1013)1.*(totend-totstart)/tcount
@@ -877,7 +875,6 @@ subroutine update_lanczos(iter)
     end if
     call system_clock(iterend,tcount,tmx)
     if(myid.eq.0) then
-        call write_scrfile(iter)
         write(unit=OUTFILE,fmt=1000)iter
         write(unit=OUTFILE,fmt=1001)1.*(iterend-iterstart)/tcount 
     end if
@@ -1220,7 +1217,7 @@ subroutine partial_orthog(iter)
     1002 format(3x,'Time to complete iteration:              ',f14.3,' secs.'/)
 end subroutine partial_orthog		       
 
-subroutine make_restart(iter)!Dumps alpha and beta coefficents to dump.dat
+subroutine make_restart(iter)!Save alpha and beta coefficents to restart.log
     use progdata
     use filedata, only: outdir,OUTFILE,RESTARTFILE,QRESTART
     implicit none
@@ -1239,9 +1236,9 @@ subroutine make_restart(iter)!Dumps alpha and beta coefficents to dump.dat
         open(unit=RESTARTFILE,file='restart.log',status='replace')
         rewind(unit=RESTARTFILE)
         write(unit=RESTARTFILE,fmt='(a)')' TOTAL NUMBER OF ITERATIONS IN FILE'
-        write(unit=RESTARTFILE,fmt='(i5)')iter
+        write(unit=RESTARTFILE,fmt=*)iter
         write(unit=RESTARTFILE,fmt='(a)')' ITERATION NUMBER TO RESTART FROM'
-        write(unit=RESTARTFILE,fmt='(i5)')iter
+        write(unit=RESTARTFILE,fmt=*)iter
         write(unit=RESTARTFILE,fmt='(a)')' ALPHA COEFFICIENTS -- diagonal T matrix elements'
         write(unit=RESTARTFILE,fmt=*)alpha(1:iter)
         write(unit=RESTARTFILE,fmt='(a)')' BETA COEFFICIENTS -- off-diagonal T matrix elements'
@@ -1504,43 +1501,23 @@ subroutine identify_roots(iter)
 end subroutine identify_roots
 
 subroutine release_memory()
-    use progdata
-    use filedata
-    implicit none
+    use progdata; use filedata; implicit none
 #include 'global.fh'
-    logical::lstat
-    integer::istat
-    if(allocated(scr1))deallocate(scr1)
-    deallocate(scr2)
-    deallocate(concoef)
-    deallocate(nzindx)
-    deallocate(nzblks)
-    deallocate(nzcoef)
-    deallocate(alpha)
-    deallocate(beta)
-    deallocate(aomega)
-    deallocate(bomega)
-    deallocate(omega)
-    deallocate(nfunc)
-    deallocate(shft)
-    deallocate(statew)
-    deallocate(loindex)
-    deallocate(roindex)
-    if(allocated(dmap))deallocate(dmap)
-    if(allocated(dordr))deallocate(dordr)
-    deallocate(bmax)
-    deallocate(nsteps)
-    deallocate(stype)
-    deallocate(basind)
-    deallocate(basdif)
-    deallocate(bstart)
-    deallocate(rcshft)
-    deallocate(nelems)
-    if(savevecs)close(ARCHIVE)
-    if(myid.eq.0)then
-        close(unit=SCRFILE,status='delete')
-        close(unit=RESTARTFILE)
-    end if
+    logical::lstat; integer::istat
+    if(allocated(scr1)) deallocate(scr1)
+    deallocate(scr2); deallocate(concoef)
+    deallocate(nzindx); deallocate(nzblks); deallocate(nzcoef)
+    deallocate(alpha); deallocate(beta)
+    deallocate(aomega); deallocate(bomega); deallocate(omega)
+    deallocate(nfunc); deallocate(shft); deallocate(statew)
+    deallocate(loindex); deallocate(roindex)
+    if(allocated(dmap)) deallocate(dmap)
+    if(allocated(dordr)) deallocate(dordr)
+    deallocate(bmax); deallocate(nsteps); deallocate(stype)
+    deallocate(basind); deallocate(basdif)
+    deallocate(bstart); deallocate(rcshft); deallocate(nelems)
+    if(savevecs) close(ARCHIVE)
+    if(myid.eq.0) close(unit=RESTARTFILE)
     lstat = GA_DESTROY(q1)
     if(.not.lstat)print *,'ERROR in GA_DESTROY(q1), ID=',myid
     lstat = GA_DESTROY(q2)
@@ -2458,19 +2435,11 @@ subroutine load_restartinfo(reloadall)!Extract all the information from restart.
     integer::i,nload
     real*8::dpval
     open(unit=RESTARTFILE,file='restart.log',status='old')
-    read(unit=RESTARTFILE,fmt='(a75)')commentline
-    read(unit=RESTARTFILE,fmt='(i5)')i
-    read(unit=RESTARTFILE,fmt='(a75)')commentline
-    read(unit=RESTARTFILE,fmt='(i5)')nload
+    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)i
+    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)nload
     reloadall = i==nload
-    read(unit=RESTARTFILE,fmt='(a75)')commentline
-    read(unit=RESTARTFILE,fmt=*)(alpha(i),i=1,nload)
-    searchterm=' BETA CO'
-    do 
-        read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
-        if(currterm==searchterm) exit
-    end do
-    read(unit=RESTARTFILE,fmt=*)(beta(i),i=0,nload)
+    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)alpha(1:nload)
+    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)beta(0:nload)
     if(orthog) then
         searchterm=' OMEGA(1'
         do 
@@ -2596,23 +2565,6 @@ subroutine totriang(n,a,m)
         end do
     end do
 end subroutine totriang
-
-subroutine write_scrfile(n)
-    use progdata, only: alpha,beta
-    use filedata, only: SCRFILE
-    implicit none
-    integer,intent(in)  :: n
-    integer             :: i
-    rewind(unit=SCRFILE)
-    write(unit=SCRFILE,fmt=1000)n-1
-    write(unit=SCRFILE,fmt='(a)')' ALPHA COEFFICIENTS'
-    write(unit=SCRFILE,fmt=1001)alpha(1:n-1)
-    write(unit=SCRFILE,fmt='(a)')' BETA COEFFICIENTS'
-    write(unit=SCRFILE,fmt=1001)beta(0:n-1)
-    !format
-        1000 format('COEFFICIENT INFORMATION AFTER ',i4, ' ITERATIONS')
-        1001 format(4(f18.14))
-end subroutine write_scrfile
 
 !Creates an n-length array, initializes elements to val
 subroutine setarray(a,n,val)
