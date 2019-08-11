@@ -1336,8 +1336,8 @@ subroutine print_footer()
     close(unit=OUTFILE)
 end subroutine print_footer
 
-!This subroutine computes the eigenvectors of the hamiltonian matrix.  It then determines diagnostic
-!information about the roots, as well as dot products useful in spin-orbit computations
+!This subroutine computes the eigenvectors of the hamiltonian matrix,
+!then determines diagnostic information about the roots & dot products useful in spin-orbit computation
 subroutine identify_roots(iter)
     use progdata, only: myid,dimen,nstates,nmodes,AU2WAVE,AU2EV,bjiconv,zerodp,idroots, &
                         q1,q2,q3,vbounds,nseg,soroots,lo,hi
