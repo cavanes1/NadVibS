@@ -768,7 +768,7 @@ subroutine initialize_elements()
         write(procindex,'(i4)')myid
         procindex = adjustl(procindex)
         if(restartrun) then!If restarting from previous computation
-            if(myid.eq.0)call load_restartinfo(vecload)
+            if(myid.eq.0) call load_restartinfo(vecload)
             nload = iiter - 1
             call ga_sync()
             call mpi_bcast(vecload,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
@@ -2429,8 +2429,6 @@ subroutine load_restartinfo(reloadall)!Extract all the information from restart.
     implicit none
     logical, intent(inout)::reloadall
     CHARACTER(75)::commentline
-    CHARACTER(80)::command
-    CHARACTER(20)::filename
     CHARACTER(8) ::searchterm,currterm
     integer::i,nload
     real*8::dpval
@@ -2443,24 +2441,19 @@ subroutine load_restartinfo(reloadall)!Extract all the information from restart.
     if(orthog) then
         searchterm=' OMEGA(1'
         do 
-            read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
+            read(unit=RESTARTFILE,fmt='(A8)')currterm
             if(currterm==searchterm) exit
         end do
         read(unit=RESTARTFILE,fmt=*)(omega(1,i),i=1,nload+2)
         searchterm=' OMEGA(2'
         do 
-            read(unit=RESTARTFILE,fmt=1001,end=10,ERR=10)currterm
+            read(unit=RESTARTFILE,fmt='(A8)')currterm
             if(currterm==searchterm) exit
         end do
         read(unit=RESTARTFILE,fmt=*)(omega(2,i),i=1,nload+2)
     end if   
     close(unit=RESTARTFILE)
-    filename = 'restart.log'
-    command = 'mv -f '//trim(filename)//' '//trim(filename)//'.old'
-    call system(command)
-    !goto and format
-        10 STOP 'ERROR in load_restartinfo()'
-        1001 format(a8)
+    call system('mv -f restart.log restart.log.old')
 end subroutine load_restartinfo
 
 !Constructs the tridiagonal matrix T from alpha and beta. If n is less than the current iteration,
