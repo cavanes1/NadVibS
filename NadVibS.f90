@@ -1,4 +1,4 @@
-!NadVibS: nonadiabatic vibrational spectrum simulation package
+!NadVibS: nonadiabatic vibronic spectrum simulation package
 !Originate from NADVIBS.X by Michael Schuurman 2007
 !
 !Source code layout:
@@ -45,7 +45,7 @@ module progdata
         nmax,&!Maximum number of basis function in any given mode
         natoms,&!Number of atoms in molecule
         niter,&!Number of lanczos iterations to be performed
-        iiter,&!Initial iteration, =1 if not a restart, =x otherwise
+        iiter,&!Initial iteration, = 1 if new job, = iteration to restart from otherwise
         totstart,totend,iterstart,iterend,&!Timing variable
         maxstor,&!The maximum number of lanczos vectors that can be stored on disk
         northog,&!The number of orthogonalization batches to perform
@@ -303,24 +303,18 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
     end if
     if(myid.eq.0) then!Only the root process will be able to see this file...
         open(POTFILE,file='nadvibs.in',access='sequential',form='formatted')
-        read(POTFILE,fmt='(a75)') commentline
-        read(POTFILE,*)(aomega(i),i=1,nmodes)
-        do i = 1,nstblks
-            read(unit=POTFILE,fmt='(a75)') commentline
-            read(unit=POTFILE,fmt=*)concoef(i)
-            do j = 1,ordr
-                read(unit=POTFILE,fmt='(a75)') commentline
-                read(unit=POTFILE,fmt=*)(POTterms(k,j,i),k=1,noterms(j))
+            read(POTFILE,*); read(POTFILE,*)aomega(1:nmodes)
+            do i = 1,nstblks
+                read(POTFILE,*); read(POTFILE,*)concoef(i)
+                do j = 1,ordr
+                    read(POTFILE,*); read(POTFILE,*)POTterms(1:noterms(j),j,i)
+                end do
             end do
-        end do
-        if(neworigin) then
-            read(unit=POTFILE,fmt='(a75)') commentline
-            read(unit=POTFILE,fmt=*)(bomega(i),i=1,nmodes)
-            read(unit=POTFILE,fmt='(a75)') commentline
-            read(unit=POTFILE,fmt=*)(dvec(i),i=1,nmodes)
-            read(unit=POTFILE,fmt='(a75)') commentline
-            read(unit=POTFILE,fmt=*)(tmat(i),i=1,nmodes**2)
-        end if
+            if(neworigin) then
+                read(POTFILE,*); read(POTFILE,*)bomega(1:nmodes)
+                read(POTFILE,*); read(POTFILE,*)dvec(1:nmodes)
+                read(POTFILE,*); read(POTFILE,*)tmat(1:nmodes*nmodes)
+            end if
         close(POTFILE)
     end if
     call ga_sync()
@@ -450,41 +444,40 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     integer,dimension(nstblks,ordr) :: ntot
     real*8,dimension(nmodes) :: dpvec
     open(unit=OUTFILE,file='output.dat',status='replace')
-    rewind(unit=OUTFILE)
-    write(unit=OUTFILE,fmt='(a)')   'NadVibS: nonadiabatic vibrational spectrum simulation package'
-    write(unit=OUTFILE,fmt='(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
-    write(unit=OUTFILE,fmt='(a)')   'Yifan Shen 2019'
+    write(OUTFILE,'(a)')   'NadVibS: nonadiabatic vibronic spectrum simulation package'
+    write(OUTFILE,'(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
+    write(OUTFILE,'(a)')   'Yifan Shen 2019'
     call ShowTime()
-    write(unit=OUTFILE,fmt='(a)')   'Input parameters read from basis.in:'
-    write(unit=OUTFILE,fmt='(a)')   '------------------------------------'
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of atoms:                              ',natoms
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of electronic states:                  ',nstates
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Order of the expansion:                       ',ordr
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of vibrational modes:                  ',nmodes
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of irreducible representations         ',nirreps
-    write(unit=OUTFILE,fmt=1003)npirrep
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Lanczos iterations:                 ',niter
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of processors used in execution:       ',nproc
-    write(unit=OUTFILE,fmt='(A48,ES10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
-    write(unit=OUTFILE,fmt='(A53,I5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
-    if(restartrun)write(unit=OUTFILE,fmt='(A48,I10)')'  Restarting Lanczos Procedure on step:         ',iiter
-    write(unit=OUTFILE,fmt='(a53,l5)')'  Perform lanczos vector re-orthogonalization:       ',orthog
+    write(OUTFILE,'(a)')   'Input parameters read from basis.in:'
+    write(OUTFILE,'(a)')   '------------------------------------'
+    write(OUTFILE,'(A48,I10)')'  Number of atoms:                              ',natoms
+    write(OUTFILE,'(A48,I10)')'  Number of electronic states:                  ',nstates
+    write(OUTFILE,'(A48,I10)')'  Order of the expansion:                       ',ordr
+    write(OUTFILE,'(A48,I10)')'  Number of vibrational modes:                  ',nmodes
+    write(OUTFILE,'(A48,I10)')'  Number of irreducible representations         ',nirreps
+    write(OUTFILE,'(A53,8I3)')'  Number of modes per irrep:                         ',npirrep
+    write(OUTFILE,'(A48,I10)')'  Number of Lanczos iterations:                 ',niter
+    write(OUTFILE,'(A48,I10)')'  Number of processors used in execution:       ',nproc
+    write(OUTFILE,'(A48,ES10.0)')'  Zero tolerance for potential coeffs.:         ',ztoler
+    write(OUTFILE,'(A53,I5)')'  Compute spin-orbit parameters for first N roots:   ',soroots
+    if(restartrun) write(OUTFILE,'(A48,I10)')'  Restarting Lanczos Procedure on step:         ',iiter
+    write(OUTFILE,'(A53,l5)')'  Perform lanczos vector re-orthogonalization:       ',orthog
     if(orthog) then
-        write(unit=OUTFILE,fmt='(a53,l5)')'    - exact dot products for vector orthog.:         ',orthogexact
-        if(.not.orthogexact) write(unit=OUTFILE,fmt='(A48,I10)')'    - compute exact orthog. every X iterations: ',chkorthog
-        write(unit=OUTFILE,fmt='(a50,f8.1)')'    - max. amount of disk available for storage:  ',maxdisk
-        write(unit=OUTFILE,fmt='(A48,I10)')'    - max. number of lanczos vectors to store:  ',maxstor
+        write(OUTFILE,'(A53,l5)')'    - exact dot products for vector orthog.:         ',orthogexact
+        if(.not.orthogexact) write(OUTFILE,'(A48,I10)')'    - compute exact orthog. every X iterations: ',chkorthog
+        write(OUTFILE,'(A50,F8.1)')'    - max. amount of disk available for storage:  ',maxdisk
+        write(OUTFILE,'(A48,I10)')'    - max. number of lanczos vectors to store:  ',maxstor
     end if
     do i = 1,nstates
-        write(unit=OUTFILE,fmt=1000)i,statew(i)
+        write(OUTFILE,'(A36,I2,A15,F5.2)')'  Initial weight of reference state ',i,':              ',statew(i)
     end do
-    write(unit=OUTFILE,fmt='(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
-    write(unit=OUTFILE,fmt=1001)rmem
-    write(unit=OUTFILE,fmt=1002)umem
-    write(unit=OUTFILE,fmt='(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
-    write(unit=OUTFILE,fmt='(A42,I16)')'  Dimensionality of a single State Vector:',dimen
-    write(unit=OUTFILE,fmt='(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
-    write(unit=OUTFILE,fmt='(a42,es16.6)')'  Machine precision for this architecture:',epsilon
+    write(OUTFILE,'(a50,es8.0)')'  Convergence criteria for eigenvalues (bji):     ',bjiconv
+    write(OUTFILE,'(A42,F16.0)')'  Total Memory Required (GA+NadVibS) (MB):',rmem
+    write(OUTFILE,'(A42,F16.0)')'  Memory Available (MB):                  ',umem
+    write(OUTFILE,'(A48,I10)')'  Number of Segements per Lanczos Vector:        ',nseg
+    write(OUTFILE,'(A42,I16)')'  Dimensionality of a single State Vector:',dimen
+    write(OUTFILE,'(A42,I16)')'  Total Dimensionality of H matrix:       ',nstates*dimen
+    write(OUTFILE,'(a42,es16.6)')'  Machine precision for this architecture:',epsilon
     ioff = 0
     call setintmatrix(ntot,nstblks,ordr,zero)
     do i = 1,ordr
@@ -506,50 +499,30 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
         end do
         ioff = ioff + nztrms(i)
     end do
-    write(unit=OUTFILE,fmt='(a)')''
-    write(unit=OUTFILE,fmt='(a)')'  Number of Potential Terms per Block -----------'
-    write(unit=OUTFILE,fmt='(a)')''
+    write(OUTFILE,*); write(OUTFILE,'(a)')'  Number of Potential Terms per Block -----------'; write(OUTFILE,*)
     write(unit=OUTFILE,fmt=1006)otab(1:ordr)
     do i = 1,nstblks
         write(unit=OUTFILE,fmt=1005)i,ntot(i,1:ordr)
     end do
-    write(unit=OUTFILE,fmt='(a)')     ''
-    write(unit=OUTFILE,fmt='(a)')     '  Basis set specification:'
-    write(unit=OUTFILE,fmt='(a)')     '    mode  # func.    omega'
-    do i=1,nmodes
-        write(unit=OUTFILE,fmt=1004)i,nfunc(i),aomega(i)*AU2WAVE
-    end do
-    write(unit=OUTFILE,fmt='(a)') ''
+    write(OUTFILE,*); write(OUTFILE,'(a)')'  Basis set specification:'
+    write(OUTFILE,'(a)')'    mode  # func.    omega'
+    do i=1,nmodes; write(OUTFILE,'(4x,I3,I7,F12.3)')i,nfunc(i),aomega(i)*AU2WAVE; end do
+    write(OUTFILE,*)
     if(neworigin)then
-        do i = 1,nmodes
-            dpvec(i) = bomega(i)*AU2WAVE
-        end do
+        do i=1,nmodes; dpvec(i)=bomega(i)*AU2WAVE; end do
     else
-        do i = 1,nmodes
-            dpvec(i) = aomega(i)*AU2WAVE
-        end do
+        do i=1,nmodes; dpvec(i)=aomega(i)*AU2WAVE; end do
     end if
     !Temporary -- only one mode may be excited in istate
-        j = 0
+        j=0
         do i = 1,nmodes
-            if(istate(i).gt.0.and.j.eq.0)then
-                j = 1
-            else
-                istate(i) = 0
-            end if
+            if(istate(i).gt.0.and.j.eq.0)then; j=1
+            else; istate(i)=0; end if
         end do
-    write(unit=OUTFILE,fmt='(a)')     ''
-    write(unit=OUTFILE,fmt='(a)')     '  Initial state specification:'
-    write(unit=OUTFILE,fmt='(a)')     '    mode  # quanta   omega'
-    do i=1,nmodes
-        write(unit=OUTFILE,fmt=1004)i,istate(i),dpvec(i)
-    end do
-    write(unit=OUTFILE,fmt='(a)') ''
-    1000 format('  Initial weight of reference state ',i2,':              ',f5.2)
-    1001 format('  Total Memory Required (GA+NadVibS) (MB):',f16.0)
-    1002 format('  Memory Available (MB):                  ',f16.0)
-    1003 format('  Number of modes per irrep:                         ',8(i3))
-    1004 format(4x,i3,i7,f12.3)
+    write(OUTFILE,*); write(OUTFILE,'(a)')'  Initial state specification:'
+    write(OUTFILE,'(a)')'    mode  # quanta   omega'
+    do i=1,nmodes; write(OUTFILE,'(4x,I3,I7,F12.3)')i,istate(i),dpvec(i); end do
+    write(OUTFILE,*)
     1005 format('  Block ',i3,':',8(I6,'   '))
     1006 format('  ORDER:    ',8('    ',i2,'   '))
 end subroutine print_basis
@@ -2354,73 +2327,42 @@ subroutine get_keywords()
     integer,dimension(100)         :: basis,initstate
     integer                        :: i,itmp,restart,bconv,sodata,shiftref,get_restart_iter,reorthog
     real*8,dimension(10) :: weights
-    NAMELIST /NADVIBS/         niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog, &
-                               chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
-    call setintarray(basis,int(100),one)
-    call setintarray(initstate,int(100),zero)
-    call setintarray(npirr,int(10),zero)
-    call setarray(weights,int(10),zerodp)
-    npirr(1) = nmodes
-    ordr = 2
-    nirreps = 1
-    niter = 1
-    natoms = 2
-    nmodes = 1
-    nstates = 1
-    restart = 0
-    bconv = 1
-    idroots = 0
-    soroots = 0
-    reorthog = 0
-    chkorthog = 100
-    nseg = 1
-    ztoler = 1.D-20
-    maxdisk = 1000
-    shiftref = 0
-    dimen = 1
-    neworigin  = .false.
-    restartrun = .false.
-    savevecs   = .false.
-    orthog     = .false.
-    orthogexact = .false.
-    iiter = 1
+    !Default values of input variables in basis.in
+    restart=0; restartrun=.false.; niter=1; iiter=1
+    call setintarray(basis,int(100),one); call setintarray(initstate,int(100),zero)
+    nstates=1; ordr=2; natoms=2; nmodes=1
+    nirreps=1; call setintarray(npirr,int(10),zero); npirr(1)=nmodes
+    shiftref=0; neworigin=.false.
+    bconv=1; idroots=0; soroots=0
+    reorthog=0; chkorthog=100; orthog=.false.; orthogexact=.false.; savevecs=.false.
+    nseg=1; ztoler=1d-20
+    maxdisk=1000; call setarray(weights,int(10),zerodp)
+    NAMELIST /NADVIBS/  niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog,&
+                        chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
     open(unit=BASISFILE,file='basis.in',access='sequential',form='formatted',status='old')
-    read(unit=BASISFILE,NML=NADVIBS)
-    close(unit=BASISFILE)
+    read(unit=BASISFILE,NML=NADVIBS); close(unit=BASISFILE)
     if(sum(npirr).ne.nmodes)then
-        write(*,1000)sum(npirr),nmodes
-        nirreps = 1
-        npirr(1) = nmodes
+        write(*,'(1x,A51)')'Warning: symmetry is disabled due to conflict input'
+        write(*,'(1x,A73)')'sum of all irreducible representation degrees != total degree of freedoms'
+        nirreps=1; npirr(1)=nmodes
     end if
-    allocate(npirrep(nirreps))
-    do i = 1,nirreps
-        npirrep(i) = npirr(i)
-    end do
-    if(reorthog>0) orthog = .true.
-    if(reorthog>1) orthogexact = .true.
-    idroots = abs(idroots)
-    soroots = abs(soroots)
+    allocate(npirrep(nirreps)); npirrep=npirr(1:nirreps)
+    if(reorthog>0) orthog=.true.
+    if(reorthog>1) orthogexact=.true.
+    idroots=abs(idroots); soroots=abs(soroots)
     if(restart.ne.0)then
-     restartrun = .true.
-     iiter = get_restart_iter()+1
-     niter = niter + iiter - 1
+        restartrun = .true.
+        iiter = get_restart_iter()+1
+        niter = niter + iiter - 1
     end if
-    if(shiftref.ne.0)neworigin = .true.
-    if(orthog.or.idroots>0.or.soroots>0)savevecs = .true.
-    bjiconv = 10.**(-bconv)
-    allocate(statew(nstates))
-    allocate(nfunc(nmodes))
-    allocate(istate(nmodes))
-    do i = 1,nstates
-        statew(i) = weights(i)
-    end do
-    do i = 1,nmodes
-        istate(i) = initstate(i)
-        nfunc(i)  = basis(i)
-        dimen     = dimen*nfunc(i)
-    end do
-    !format
-        1000 format(' SYMMETRY CONFLICT, ',i5,' != ',i5,' --> setting nirrep=1')
+    if(shiftref.ne.0) neworigin=.true.
+    if(orthog.or.idroots>0.or.soroots>0) savevecs=.true.
+    bjiconv = 10d0**(-bconv)
+    allocate(statew(nstates)); statew=weights(1:nstates)
+    allocate(nfunc(nmodes)); nfunc=basis(1:nmodes)
+    allocate(istate(nmodes)); istate=initstate(1:nmodes)
+    dimen=1; do i=1,nmodes; dimen= dimen*nfunc(i); end do
+    1000 format(' SYMMETRY CONFLICT, ',i5,' != ',i5,' --> setting nirrep=1')
 end subroutine get_keywords
 
 subroutine load_restartinfo(reloadall)!Extract all the information from restart.log file
@@ -2433,26 +2375,25 @@ subroutine load_restartinfo(reloadall)!Extract all the information from restart.
     integer::i,nload
     real*8::dpval
     open(unit=RESTARTFILE,file='restart.log',status='old')
-    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)i
-    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)nload
-    reloadall = i==nload
-    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)alpha(1:nload)
-    read(unit=RESTARTFILE,fmt=*); read(unit=RESTARTFILE,fmt=*)beta(0:nload)
-    if(orthog) then
-        searchterm=' OMEGA(1'
-        do 
-            read(unit=RESTARTFILE,fmt='(A8)')currterm
-            if(currterm==searchterm) exit
-        end do
-        read(unit=RESTARTFILE,fmt=*)(omega(1,i),i=1,nload+2)
-        searchterm=' OMEGA(2'
-        do 
-            read(unit=RESTARTFILE,fmt='(A8)')currterm
-            if(currterm==searchterm) exit
-        end do
-        read(unit=RESTARTFILE,fmt=*)(omega(2,i),i=1,nload+2)
-    end if   
-    close(unit=RESTARTFILE)
+        read(RESTARTFILE,*); read(RESTARTFILE,*)i
+        read(RESTARTFILE,*); read(RESTARTFILE,*)nload; reloadall=i==nload
+        read(RESTARTFILE,*); read(RESTARTFILE,*)alpha(1:nload)
+        read(RESTARTFILE,*); read(RESTARTFILE,*)beta(0:nload)
+        if(orthog) then
+            searchterm=' OMEGA(1'
+            do 
+                read(RESTARTFILE,'(A8)')currterm
+                if(currterm==searchterm) exit
+            end do
+            read(RESTARTFILE,*)omega(1,1:nload+2)
+            searchterm=' OMEGA(2'
+            do 
+                read(RESTARTFILE,'(A8)')currterm
+                if(currterm==searchterm) exit
+            end do
+            read(RESTARTFILE,*)omega(2,1:nload+2)
+        end if   
+    close(RESTARTFILE)
     call system('mv -f restart.log restart.log.old')
 end subroutine load_restartinfo
 
@@ -2755,13 +2696,10 @@ end subroutine union
         implicit none
         character*75::commentline
         integer::dummy
-        open(unit=RESTARTFILE,file='restart.log',status='old')
-            rewind(unit=RESTARTFILE)
-            read(unit=RESTARTFILE,fmt='(a75)')commentline
-            read(unit=RESTARTFILE,fmt='(i5)')dummy
-            read(unit=RESTARTFILE,fmt='(a75)')commentline
-            read(unit=RESTARTFILE,fmt='(i5)')get_restart_iter
-        close(unit=RESTARTFILE)
+        open(unit=RESTARTFILE,file='restart.log',status='old'); rewind(unit=RESTARTFILE)
+            read(RESTARTFILE,*); read(RESTARTFILE,*)
+            read(RESTARTFILE,*); read(RESTARTFILE,*)get_restart_iter
+        close(RESTARTFILE)
     end function get_restart_iter
     
     !Returns the Nth Hermite polynomial evaluated at x
