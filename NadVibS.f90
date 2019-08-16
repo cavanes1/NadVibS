@@ -83,7 +83,7 @@ module progdata
     integer,dimension(2)::lo,hi!Indices of the Lanczos vector a particular process is responsible for
     real*8,dimension(:),allocatable::concoef!dcoef: constant terms for each state block
     real*8,dimension(:,:),allocatable::nzcoef!Array of non-zero potential coefficients
-    real*8::bjiconv,&!The degree of convergence before eigenvalues are printed -> 1e-(bijconv)
+    real*8::bjiconv,&!The degree of convergence before eigenvalues are printed -> 1e-(bjiconv)
         epsilon,&!Machine precision of the architecture
         eta,&!Epsilon^(3/4)
         maxdisk,&!Maximum amount of disk available for use (in MB)
@@ -127,7 +127,7 @@ program main
 #include "mpif.h"
 #include "global.fh"
     logical::status
-    integer::i,istat,nconverged
+    integer::i,istat
     real*8::usermem,reqmem
     !---------- Initialize ----------
         !Default orthogonalization approach:
@@ -1888,8 +1888,8 @@ subroutine generate_initialvec()
             end do
         else
             do i = 1,nmodes
-                 acoef(i) = aomega(i)
-                 bcoef(i) = bomega(i)
+                acoef(i) = aomega(i)
+                bcoef(i) = bomega(i)
             end do
         end if
         do i = 1,nirreps
@@ -2809,30 +2809,6 @@ end subroutine union
             hoelem=0d0
         end select
     end function hoelem
-    
-    !Return the current number of converged eigenvalues
-    integer function nconverged(n)
-        use progdata, only: bjiconv,beta
-        implicit none
-        integer,intent(in)::n
-        integer::i
-        real*8::eval,difeigs
-        real*8,dimension(n*(n+1)/2)::T
-        real*8,dimension(n,n)::eigvecs
-        real*8,dimension(n)::eigvals
-        real*8,dimension(5*n)::tbuf
-        nconverged=0
-        difeigs=1d-8
-        eval=-1d0 
-        call make_tmatrix(T,n)
-        call givens(n,n,n,T,tbuf,eigvals,eigvecs)
-        do i = 1,Ceiling(1.*n/2.)
-            if((eigvals(i)-eval).gt.difeigs) then
-                eval = eigvals(i)
-                if(abs(beta(n)*eigvecs(n,i)).lt.1e-8) nconverged=nconverged+1
-            end if
-        end do
-    end function nconverged
     
     !Returns the number of possibilities for picking out d balls of out n (with back)
     integer function numut(n,d)
