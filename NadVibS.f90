@@ -213,7 +213,7 @@ subroutine read_cmdline(ierr,memory,dir)
     end do
 end subroutine read_cmdline
 
-subroutine read_basis()!Read main input file basis.in
+subroutine read_basis()
     use progdata
     use filedata, only: BASISFILE
     implicit none
@@ -2319,7 +2319,7 @@ subroutine get_barray(stateindex,barray)
     end do
 end subroutine get_barray
 
-subroutine get_keywords()
+subroutine get_keywords()!Read main input file basis.in
     use progdata
     use filedata, only: BASISFILE
     implicit none
