@@ -1282,24 +1282,21 @@ subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
      if(Tints(T(i)).gt.dpval)dpval=Tints(T(i))
     end do
     write(unit=OUTFILE,fmt=1003)dpval
-    write(unit=OUTFILE,fmt='(a)')''
-    write(unit=OUTFILE,fmt=1004)
+    write(OUTFILE,*); write(unit=OUTFILE,fmt=1004)
     do i = 1,ngood
-        write(unit=OUTFILE,fmt=1005)i,int(T(i)),(Tvals(T(i))-Tvals(T(1)))*AU2WAVE,(Tvals(T(i))-Tvals(1))*AU2EV, &
-                                    bji(T(i)),Tints(T(i))/dpval
+        write(unit=OUTFILE,fmt=1005)i,int(T(i)),bji(T(i)),&
+            (Tvals(T(i))-Tvals(T(1)))*AU2WAVE,(Tvals(T(i))-Tvals(1))*AU2EV,Tints(T(i))/dpval
     end do
     call system_clock(totstart,tcount,tmx)
-    write(unit=OUTFILE,fmt='(a)') ' '
-    write(unit=OUTFILE,fmt='(a)') '   All requested eigenvalues computed.'
+    write(OUTFILE,*); write(OUTFILE,'(A)')'   All requested eigenvalues computed.'
     write(unit=OUTFILE,fmt=1000)1.*(totstart-totend)/tcount
-    deallocate(T)
-    deallocate(Teig)
+    deallocate(T); deallocate(Teig)
     1000 format('  Time Required: ',f14.5,' secs.')
     1001 format('  ZPVE from nadvibs.in (reference state): ',f12.4,' cm-1')
     1002 format('  FIRST eigenvalue:                       ',f12.4,' cm-1')
     1003 format('  Intensity Factor (MAX Intensity):       ',f12.8)
-    1004 format(' Root  Index     E(cm-1)       E(eV)     Convergence   Intensity')
-    1005 format(i4,'  ',i4,'  ',f13.5,'  ',f10.5,'  ',es12.4,'  ',f8.4)
+    1004 format('  Root  Index  Convergence     E(cm-1)        E(eV)     Intensity')
+    1005 format(     I6,    I7,      es13.4,         f15.5,      f12.5,     f12.10)
 end subroutine compute_eigenvalues
 
 subroutine print_footer()
@@ -1382,8 +1379,7 @@ subroutine identify_roots(iter)
         if(myid.eq.0)write(unit=ROOTINFO,fmt=1006)i
         !Analyze Eigenvectors
             if(myid.eq.0) then
-                write(unit=ROOTINFO,fmt='(a)')' '
-                write(unit=ROOTINFO,fmt=1007)i
+                write(ROOTINFO,*); write(unit=ROOTINFO,fmt=1007)i
                 write(unit=ROOTINFO,fmt=1008)Tvals(i)*AU2WAVE,Tvals(i)*AU2EV,Tints(i)/intfactor
             end if
             call GA_ELEM_MULTIPLY(q1,q1,q2)
