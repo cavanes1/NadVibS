@@ -1296,7 +1296,7 @@ subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
     1002 format('  FIRST eigenvalue:                       ',f12.4,' cm-1')
     1003 format('  Intensity Factor (MAX Intensity):       ',f12.8)
     1004 format('  Root  Index  Convergence     E(cm-1)        E(eV)     Intensity')
-    1005 format(     I6,    I7,      es13.4,         f15.5,      f12.5,     f12.10)
+    1005 format(     I6,    I7,      es13.4,         f15.5,      f12.5,     f12.7)
 end subroutine compute_eigenvalues
 
 subroutine print_footer()
