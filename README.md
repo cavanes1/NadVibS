@@ -25,7 +25,7 @@ NadVibS requires 2 input files: nadvibs.in & basis.in, an example is provided. n
 * nseg      = (default 1) number of segements to divide lanczos vector into
 * ztoler    = (default 1d-20) Any coefficient less ztoler is set to 0
 * maxdisk   = (default 1000) maximum amount of disk available for use (in MB)
-* weights   = (default 0) initial weights of the electronic states
+* weights   = (default 1) initial weights of the electronic states
 
 Reference:
 > 1. M. S. Schuurman, R. A. Young, D. R. Yarkony 2007 Chem. Phys.

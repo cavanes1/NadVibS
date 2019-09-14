@@ -2332,7 +2332,7 @@ subroutine get_keywords()!Read main input file basis.in
     bconv=0; idroots=0; soroots=0
     reorthog=0; chkorthog=100; orthog=.false.; orthogexact=.false.; savevecs=.false.
     nseg=1; ztoler=1d-20
-    maxdisk=1000; call setarray(weights,int(10),zerodp)
+    maxdisk=1000; call setarray(weights,int(10),1d0)
     NAMELIST /NADVIBS/  niter,natoms,nmodes,nstates,basis,restart,bconv,idroots,soroots,reorthog,&
                         chkorthog,nseg,ztoler,maxdisk,weights,shiftref,nirreps,npirr,ordr,initstate
     open(unit=BASISFILE,file='basis.in',access='sequential',form='formatted',status='old')
