@@ -2329,7 +2329,7 @@ subroutine get_keywords()!Read main input file basis.in
     nstates=1; ordr=2; natoms=2; nmodes=1
     nirreps=1; call setintarray(npirr,int(10),zero); npirr(1)=nmodes
     shiftref=0; neworigin=.false.
-    bconv=1; idroots=0; soroots=0
+    bconv=0; idroots=0; soroots=0
     reorthog=0; chkorthog=100; orthog=.false.; orthogexact=.false.; savevecs=.false.
     nseg=1; ztoler=1d-20
     maxdisk=1000; call setarray(weights,int(10),zerodp)

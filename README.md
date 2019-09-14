@@ -17,7 +17,7 @@ NadVibS requires 2 input files: nadvibs.in & basis.in, an example is provided. n
 * nirreps   = number of irreducible representations in point group symmetry
 * npirr     = number of normal modes in each irreducible representation
 * shiftref  = 0, do not use new origin; else, use new origin
-* bconv     = (default 1) -lg( convergence tolerence for eigen value )
+* bconv     = (default 0) -lg( convergence tolerence for eigen value )
 * idroots   = (default 0) how many of the lead contributors to a vibronic level to identify
 * soroots   = number of roots to compute spin orbit parameters
 * reorthog  = (default 0) >0, request re-orthogonalization; >1, exact dot products are to be used to monitor lanczos vector orthogonality 
