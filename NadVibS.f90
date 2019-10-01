@@ -2375,20 +2375,8 @@ subroutine load_restartinfo(reloadall)!Extract all the information from restart.
         read(RESTARTFILE,*); read(RESTARTFILE,*)nload; reloadall=i==nload
         read(RESTARTFILE,*); read(RESTARTFILE,*)alpha(1:nload)
         read(RESTARTFILE,*); read(RESTARTFILE,*)beta(0:nload)
-        if(orthog) then
-            searchterm=' OMEGA(1'
-            do 
-                read(RESTARTFILE,'(A8)')currterm
-                if(currterm==searchterm) exit
-            end do
-            read(RESTARTFILE,*)omega(1,1:nload+2)
-            searchterm=' OMEGA(2'
-            do 
-                read(RESTARTFILE,'(A8)')currterm
-                if(currterm==searchterm) exit
-            end do
-            read(RESTARTFILE,*)omega(2,1:nload+2)
-        end if   
+        read(RESTARTFILE,*)omega(1,0:nload)
+        read(RESTARTFILE,*)omega(2,0:nload)
     close(RESTARTFILE)
     call system('mv -f restart.log restart.log.old')
 end subroutine load_restartinfo
