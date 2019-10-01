@@ -5,7 +5,7 @@
 ######################################
 
 compiler = mpifort
-GAInc  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5-4_i8/include
+GAInc  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5.4_i8/include
 MPIInc = /software/apps/mpi/openmpi/3.1/intel/18.0/include
 src = NadVibS.f90
 exe = NadVibS.exe
