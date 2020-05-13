@@ -1,7 +1,38 @@
-NadVibS.exe
-*.a
+# Prerequisites
+*.d
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Fortran module files
 *.mod
-avx/NadVibS.f90
+*.smod
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Python cache
+__pycache__/
+
+# Executables
+*.exe
+*.out
+*.app
+
+# VS code
 .vscode/
-Back up/
-*.in
