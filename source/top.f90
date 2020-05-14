@@ -263,7 +263,9 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     write(OUTFILE,'(a)')   'NadVibS: nonadiabatic vibronic spectrum simulation package'
     write(OUTFILE,'(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
     write(OUTFILE,'(a)')   'Yifan Shen 2019'
+    write(OUTFILE,'(a)')
     call ShowTime()
+    write(OUTFILE,'(a)')
     write(OUTFILE,'(a)')   'Input parameters read from basis.in:'
     write(OUTFILE,'(a)')   '------------------------------------'
     write(OUTFILE,'(A48,I10)')'  Number of atoms:                              ',natoms

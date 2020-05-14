@@ -1,7 +1,7 @@
 '''
 There usually are 2 kinds of spectrums to plot:
-    1. Line spectrum, obtained from time independent Schrodinger equation
-    2. Continuous spectrum, obtained from experiment or broadening line spectrum or dynamics
+1. Line spectrum, obtained from time independent Schrodinger equation
+2. Continuous spectrum, obtained from experiment or broadening line spectrum or dynamics
 
 File format: 2 columns to be (x, y)
 '''
@@ -11,17 +11,16 @@ File format: 2 columns to be (x, y)
 #    https://matplotlib.org/api/text_api.html, for font
 #    https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.legend.html, especially for loc
 
-# Plot object control
-LineWidth=[3.5]
-LineColor=['red']
+# Plot style
 InvertLineOrigin=False # Default origin is bottom, set to True for spectrum with lines originating from top (e.g. IR)
+LineWidth=3.5
+LineColor=['red']
 
+ContinuousLineWidth=3.5
 ContinuousLineStyle=['solid']
-ContinuousLineWidth=[3.5]
 ContinuousColor=['blue']
 ContinuousLegend=['experiment']
 
-# Plot style
 TitleFontSize=32; TitleFontWeight='regular'
 LabelFontSize=36; LabelFontWeight='bold'
 AxisThickness=3
@@ -37,26 +36,39 @@ import matplotlib.pyplot as plt
 
 def parse_args() -> argparse.Namespace: # Command line input
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('-l','--LineSpectrum', nargs='*', help='line spectrum file')
-    parser.add_argument('-c','--ContinuousSpectrum', nargs='*', help='line spectrum file')
+    parser.add_argument('-line','--line_spectrum', nargs='*', help='line spectrum file')
+    parser.add_argument('-lc','--line_color', nargs='*', help='color of each line spectrum')
+    parser.add_argument('-cont','--continuous_spectrum', nargs='*', help='continuous spectrum file')
+    parser.add_argument('-cc','--continuous_color', nargs='*', help='color of each continuous spectrum')
     parser.add_argument('-t','--title', type=str, default='Photoelectron spectrum', help='default = Photoelectron spectrum')
     parser.add_argument('-lx','--label_x', type=str, default='Electron kinetic energy / eV', help='default = x')
     parser.add_argument('-ly','--label_y', type=str, default='Relative intensity', help='default = y')
     args = parser.parse_args()
-    if args.LineSpectrum is not None:
-        for i in range(len(args.LineSpectrum)):
-            args.LineSpectrum[i] = Path(args.LineSpectrum[i])
-    if args.ContinuousSpectrum is not None:
-        for i in range(len(args.ContinuousSpectrum)):
-            args.ContinuousSpectrum[i] = Path(args.ContinuousSpectrum[i])
+    # Sanity check and some preprocess
+    if args.line_spectrum is not None:
+        for i in range(len(args.line_spectrum)):
+            args.line_spectrum[i] = Path(args.line_spectrum[i])
+        if args.line_color is not None:
+            assert len(args.line_color)==len(args.line_spectrum), "one color per line spectrum"
+    if args.continuous_spectrum is not None:
+        for i in range(len(args.continuous_spectrum)):
+            args.continuous_spectrum[i] = Path(args.continuous_spectrum[i])
+        if args.continuous_color is not None:
+            assert len(args.continuous_color)==len(args.continuous_spectrum), "one color per continuous spectrum"
     return args
 
 if __name__ == "__main__":
     args = parse_args()
     # Read data, create artists
-    if args.LineSpectrum is not None:
-        for j in range(len(args.LineSpectrum)):
-            with open(args.LineSpectrum[j],'r') as f:
+    if args.line_spectrum is not None:
+        # Adjust plot style control
+        if args.line_color is not None:
+            LineColor = args.line_color
+        else:
+            for j in range(1, len(args.line_spectrum)): LineColor.append(LineColor[0])
+        # Plot each spectrum
+        for j in range(len(args.line_spectrum)):
+            with open(args.line_spectrum[j],'r') as f:
                 data=f.readlines()
                 nline=len(data); xline=numpy.empty(nline); yline=numpy.empty(nline)
                 for i in range(nline):
@@ -65,14 +77,20 @@ if __name__ == "__main__":
             if(InvertLineOrigin):
                 for i in range(1,nline):
                     if xline[i]>=xleft and xline[i]<=xright:
-                        plt.vlines(xline[i],yline[i],yup,lw=LineWidth[j],color=LineColor[j])
+                        plt.vlines(xline[i],yline[i],yup,lw=LineWidth,color=LineColor[j])
             else:
                 for i in range(1,nline):
                     if xline[i]>=xleft and xline[i]<=xright:
-                        plt.vlines(xline[i],ylow,yline[i],lw=LineWidth[j],color=LineColor[j])
-    if args.ContinuousSpectrum is not None:
-        for j in range(len(args.ContinuousSpectrum)):
-            with open(args.ContinuousSpectrum[j],'r') as f:
+                        plt.vlines(xline[i],ylow,yline[i],lw=LineWidth,color=LineColor[j])
+    if args.continuous_spectrum is not None:
+        # Adjust plot style control
+        if args.continuous_color is not None:
+            ContinuousColor = args.continuous_color
+        else:
+            for j in range(1, len(args.continuous_spectrum)): ContinuousColor.append(ContinuousColor[0])
+        # Plot each spectrum
+        for j in range(len(args.continuous_spectrum)):
+            with open(args.continuous_spectrum[j],'r') as f:
                 data=f.readlines()
                 ncontinuous=len(data); xcontinuous=numpy.empty(ncontinuous); ycontinuous=numpy.empty(ncontinuous)
                 searchleft=True; indexleft=0; searchright=True; indexright=ncontinuous
@@ -83,7 +101,7 @@ if __name__ == "__main__":
                         searchleft=False; indexleft=i
                     if(searchright and xcontinuous[i]>xright):
                         searchright=False; indexright=i
-            plt.plot(xcontinuous[indexleft:indexright],ycontinuous[indexleft:indexright],ls=ContinuousLineStyle[j],lw=ContinuousLineWidth[j],color=ContinuousColor[j],label=ContinuousLegend[j])
+            plt.plot(xcontinuous[indexleft:indexright],ycontinuous[indexleft:indexright],ls=ContinuousLineStyle[j],lw=ContinuousLineWidth,color=ContinuousColor[j],label=ContinuousLegend[j])
     
     ax=plt.gca() # Adjust plot style
     
