@@ -12,7 +12,7 @@ import numpy
 def parse_args() -> argparse.Namespace: # Command line input
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('input', type=Path, help='spectrum to modify')
-    parser.add_argument('-o','--output', type=Path, default=Path('output.txt'), help='output file (default = output.txt)')
+    parser.add_argument('-o','--output', type=Path, default=Path('spectrum.txt'), help='output file (default = spectrum.txt)')
     parser.add_argument('-n','--normalize', action='store_true', help='normalize intensity to let max = 1')
     parser.add_argument('-r','--rescale', type=float, default=1.0, help='rescale intensity (default = 1)')
     parser.add_argument('-i','--invert', action='store_true', help='invert position axis')

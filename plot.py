@@ -18,7 +18,7 @@ LineColor=['red']
 
 ContinuousLineWidth=3.5
 ContinuousLineStyle=['solid']
-ContinuousColor=['blue']
+ContinuousColor=['black']
 ContinuousLegend=['experiment']
 
 TitleFontSize=32; TitleFontWeight='regular'
