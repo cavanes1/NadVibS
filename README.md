@@ -44,6 +44,9 @@ NadVibS requires 2 input files: nadvibs.in & basis.in, an example is provided. n
 * maxdisk   = (default 1000) maximum amount of disk available for use (in MB)
 * weights   = (default 1) initial weights of the electronic states
 
+## Dependency
+Global Arrays 5.4 or later
+
 ## Reference:
 > 1. M. S. Schuurman, R. A. Young, D. R. Yarkony 2007 Chem. Phys.
 > 2. M. S. Schuurman, D. Yarkony 2008 J. Chem. Phys.
