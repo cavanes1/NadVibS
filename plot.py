@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace: # Command line input
     parser.add_argument('-lc','--line_color', nargs='*', help='color of each line spectrum')
     parser.add_argument('-cont','--continuous_spectrum', nargs='*', help='continuous spectrum file')
     parser.add_argument('-cc','--continuous_color', nargs='*', help='color of each continuous spectrum')
+    parser.add_argument('-cl','--continuous_legend', nargs='*', help='legend of each continuous spectrum')
     parser.add_argument('-t','--title', type=str, default='Photoelectron spectrum', help='default = Photoelectron spectrum')
     parser.add_argument('-lx','--label_x', type=str, default='Electron kinetic energy / eV', help='default = x')
     parser.add_argument('-ly','--label_y', type=str, default='Relative intensity', help='default = y')
@@ -68,18 +69,17 @@ if __name__ == "__main__":
             for j in range(1, len(args.line_spectrum)): LineColor.append(LineColor[0])
         # Plot each spectrum
         for j in range(len(args.line_spectrum)):
-            with open(args.line_spectrum[j],'r') as f:
-                data=f.readlines()
-                nline=len(data); xline=numpy.empty(nline); yline=numpy.empty(nline)
-                for i in range(nline):
-                    temp=data[i].split()
-                    xline[i]=float(temp[0].strip()); yline[i]=float(temp[1].strip())
+            with open(args.line_spectrum[j],'r') as f: lines=f.readlines()
+            nline=len(lines); xline=numpy.empty(nline); yline=numpy.empty(nline)
+            for i in range(nline):
+                temp=lines[i].split()
+                xline[i]=float(temp[0]); yline[i]=float(temp[1])
             if(InvertLineOrigin):
-                for i in range(1,nline):
+                for i in range(nline):
                     if xline[i]>=xleft and xline[i]<=xright:
                         plt.vlines(xline[i],yline[i],yup,lw=LineWidth,color=LineColor[j])
             else:
-                for i in range(1,nline):
+                for i in range(nline):
                     if xline[i]>=xleft and xline[i]<=xright:
                         plt.vlines(xline[i],ylow,yline[i],lw=LineWidth,color=LineColor[j])
     if args.continuous_spectrum is not None:
@@ -88,19 +88,22 @@ if __name__ == "__main__":
             ContinuousColor = args.continuous_color
         else:
             for j in range(1, len(args.continuous_spectrum)): ContinuousColor.append(ContinuousColor[0])
+        if args.continuous_legend is not None:
+            ContinuousLegend = args.continuous_legend
+        else:
+            for j in range(1, len(args.continuous_spectrum)): ContinuousLegend.append(ContinuousLegend[0])
         # Plot each spectrum
         for j in range(len(args.continuous_spectrum)):
-            with open(args.continuous_spectrum[j],'r') as f:
-                data=f.readlines()
-                ncontinuous=len(data); xcontinuous=numpy.empty(ncontinuous); ycontinuous=numpy.empty(ncontinuous)
-                searchleft=True; indexleft=0; searchright=True; indexright=ncontinuous
-                for i in range(ncontinuous):
-                    temp=data[i].split()
-                    xcontinuous[i]=float(temp[0].strip()); ycontinuous[i]=float(temp[1].strip())
-                    if(searchleft and xcontinuous[i]>=xleft):
-                        searchleft=False; indexleft=i
-                    if(searchright and xcontinuous[i]>xright):
-                        searchright=False; indexright=i
+            with open(args.continuous_spectrum[j],'r') as f: lines=f.readlines()
+            ncontinuous=len(lines); xcontinuous=numpy.empty(ncontinuous); ycontinuous=numpy.empty(ncontinuous)
+            searchleft=True; indexleft=0; searchright=True; indexright=ncontinuous
+            for i in range(ncontinuous):
+                temp=lines[i].split()
+                xcontinuous[i]=float(temp[0].strip()); ycontinuous[i]=float(temp[1].strip())
+                if(searchleft and xcontinuous[i]>=xleft):
+                    searchleft=False; indexleft=i
+                if(searchright and xcontinuous[i]>xright):
+                    searchright=False; indexright=i-1
             plt.plot(xcontinuous[indexleft:indexright],ycontinuous[indexleft:indexright],ls=ContinuousLineStyle[j],lw=ContinuousLineWidth,color=ContinuousColor[j],label=ContinuousLegend[j])
     
     ax=plt.gca() # Adjust plot style
