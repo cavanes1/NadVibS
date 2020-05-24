@@ -13,7 +13,7 @@ MPI =
 # MPI = /home/yshen/Software/Programming/openmpi-3.1.4/intel
 # On MARCC
 # GA  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5.4_i8
-# MPI = /software/apps/mpi/openmpi/3.1/intel/18.0
+# MPI = /software/apps/mpi/openmpi/3.1/intel/17.0
 
 # User does not have to take care of following variables
 compiler = $(MPI)/bin/mpifort
