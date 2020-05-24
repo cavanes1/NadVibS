@@ -5,12 +5,18 @@
 ######################################
 
 # Flags for user to tune
-compiler = mpifort
 FFLAGS = -m64 -xCORE-AVX2 -mtune=core-avx2 -no-prec-div -fp-model fast=2 -O3
-GA  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5.4_i8
-MPI = /software/apps/mpi/openmpi/3.1/intel/18.0
+GA  = 
+MPI = 
+# On my laptop
+# GA  = /home/yshen/Software/Programming/ga-5.4/openmpi-intel
+# MPI = /home/yshen/Software/Programming/openmpi-3.1.4/intel
+# On MARCC
+# GA  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5.4_i8
+# MPI = /software/apps/mpi/openmpi/3.1/intel/18.0
 
 # User does not have to take care of following variables
+compiler = $(MPI)/bin/mpifort
 flag = -mkl -I$(GA)/include -I$(MPI)/include -fpp \
 -i8 -integer-size 64 -auto -assume byterecl $(FFLAGS)
 lib = $(addprefix $(GA)/lib/, libcomex.a libga.a libarmci.a)
