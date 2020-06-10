@@ -42,8 +42,8 @@ def parse_args() -> argparse.Namespace: # Command line input
     parser.add_argument('-cc','--continuous_color', nargs='*', help='color of each continuous spectrum')
     parser.add_argument('-cl','--continuous_legend', nargs='*', help='legend of each continuous spectrum')
     parser.add_argument('-t','--title', type=str, default='Photoelectron spectrum', help='default = Photoelectron spectrum')
-    parser.add_argument('-lx','--label_x', type=str, default='Electron kinetic energy / eV', help='default = x')
-    parser.add_argument('-ly','--label_y', type=str, default='Relative intensity', help='default = y')
+    parser.add_argument('-lx','--label_x', type=str, default='x', help='default = x')
+    parser.add_argument('-ly','--label_y', type=str, default='y', help='default = y')
     args = parser.parse_args()
     # Sanity check and some preprocess
     if args.line_spectrum is not None:
