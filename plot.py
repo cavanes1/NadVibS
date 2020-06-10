@@ -124,7 +124,7 @@ if __name__ == "__main__":
     ax.tick_params(which='major',direction=TickDirection,length=  TickLength  ,width=TickWidth,top=True,right=True)
     ax.tick_params(which='minor',direction=TickDirection,length=0.5*TickLength,width=TickWidth,top=True,right=True)
     xloc=ax.get_xticks(minor=True); temp=xloc[1]-xloc[0]; plt.xlim(xleft-temp,xright+temp) # Add a minor tick
-    yloc=ax.get_xticks(minor=True); temp=yloc[1]-yloc[0]; plt.ylim(ylow -temp,yup   +temp) # to look prettier
+    yloc=ax.get_yticks(minor=True); temp=yloc[1]-yloc[0]; plt.ylim(ylow -temp,yup   +temp) # to look prettier
     
     plt.legend(loc=LegendLocation,frameon=LegendFrame,fontsize=LegendFontSize)
     
