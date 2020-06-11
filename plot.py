@@ -16,8 +16,8 @@ InvertLineOrigin=False # Default origin is bottom, set to True for spectrum with
 LineWidth=3.5
 LineColor=['red']
 
-ContinuousLineWidth=3.5
-ContinuousLineStyle=['solid']
+ContinuousWidth=3.5
+ContinuousStyle=['solid']
 ContinuousColor=['black']
 ContinuousLegend=['experiment']
 
@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace: # Command line input
     parser.add_argument('-line','--line_spectrum', nargs='*', help='line spectrum file')
     parser.add_argument('-lc','--line_color', nargs='*', help='color of each line spectrum')
     parser.add_argument('-cont','--continuous_spectrum', nargs='*', help='continuous spectrum file')
+    parser.add_argument('-cs','--continuous_style', nargs='*', help='style of each continuous spectrum')
     parser.add_argument('-cc','--continuous_color', nargs='*', help='color of each continuous spectrum')
     parser.add_argument('-cl','--continuous_legend', nargs='*', help='legend of each continuous spectrum')
     parser.add_argument('-t','--title', type=str, default='Photoelectron spectrum', help='default = Photoelectron spectrum')
@@ -54,8 +55,12 @@ def parse_args() -> argparse.Namespace: # Command line input
     if args.continuous_spectrum is not None:
         for i in range(len(args.continuous_spectrum)):
             args.continuous_spectrum[i] = Path(args.continuous_spectrum[i])
+        if args.continuous_style is not None:
+            assert len(args.continuous_style)==len(args.continuous_spectrum), "one style per continuous spectrum"
         if args.continuous_color is not None:
             assert len(args.continuous_color)==len(args.continuous_spectrum), "one color per continuous spectrum"
+        if args.continuous_legend is not None:
+            assert len(args.continuous_legend)==len(args.continuous_spectrum), "one legend per continuous spectrum"    
     return args
 
 if __name__ == "__main__":
@@ -84,6 +89,10 @@ if __name__ == "__main__":
                         plt.vlines(xline[i],ylow,yline[i],lw=LineWidth,color=LineColor[j])
     if args.continuous_spectrum is not None:
         # Adjust plot style control
+        if args.continuous_style is not None:
+            ContinuousStyle = args.continuous_style
+        else:
+            for j in range(1, len(args.continuous_spectrum)): ContinuousStyle.append(ContinuousStyle[0])
         if args.continuous_color is not None:
             ContinuousColor = args.continuous_color
         else:
@@ -104,7 +113,7 @@ if __name__ == "__main__":
                     searchleft=False; indexleft=i
                 if(searchright and xcontinuous[i]>xright):
                     searchright=False; indexright=i-1
-            plt.plot(xcontinuous[indexleft:indexright],ycontinuous[indexleft:indexright],ls=ContinuousLineStyle[j],lw=ContinuousLineWidth,color=ContinuousColor[j],label=ContinuousLegend[j])
+            plt.plot(xcontinuous[indexleft:indexright],ycontinuous[indexleft:indexright],ls=ContinuousStyle[j],lw=ContinuousWidth,color=ContinuousColor[j],label=ContinuousLegend[j])
     
     ax=plt.gca() # Adjust plot style
     
