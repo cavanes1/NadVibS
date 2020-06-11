@@ -1154,7 +1154,6 @@ subroutine identify_roots(iter)
     ld(1) = nstates 
     if(nroots.gt.0.and.myid.eq.0)then
         open(unit=ROOTINFO,file='rootinfo.dat',status='replace')
-        rewind(unit=ROOTINFO)
     end if
     if(soroots.gt.0)then
         if(myid.eq.0)then
@@ -1163,7 +1162,6 @@ subroutine identify_roots(iter)
         end if
         open(unit=EIGVECS,file=trim(adjustl(outdir))//'nadvibs.37.'//trim(procindex),access='direct', &
             status='replace',form='unformatted',recl=8*(hi(1)-lo(1)+1))
-        rewind(EIGVECS)
     end if
     call make_tmatrix(T,iter)
     call compute_ritzsystem(T,iter,bji,Tvals,Tvecs,Tints,Tsign)
@@ -1192,16 +1190,16 @@ subroutine identify_roots(iter)
             call read_ga(q2,ARCHIVE,k)
             call GA_ADD(dpval,q1,Tvecs(k,i),q2,q1)
         end do
-        if(i.le.soroots)call write_ga(q1,EIGVECS,i)
+        if(i.le.soroots) call write_ga(q1,EIGVECS,i)
         call ga_sync()
-        if(myid.eq.0)write(unit=ROOTINFO,fmt=1006)i
+        if(myid.eq.0) write(unit=ROOTINFO,fmt=1006)i
         !Analyze Eigenvectors
             if(myid.eq.0) then
                 write(ROOTINFO,*); write(unit=ROOTINFO,fmt=1007)i
                 write(unit=ROOTINFO,fmt=1008)Tvals(i)*AU2WAVE,Tvals(i)*AU2EV,Tints(i)/intfactor
             end if
             call GA_ELEM_MULTIPLY(q1,q1,q2)
-            do k = 1,5
+            do k = 1,idroots
                 call NGA_SELECT_ELEM(q2,'max',dpval,mxval)     
                 call NGA_GET(q1,mxval,mxval,cphase(k:k),ld)
                 cmag(k)       = dpval
@@ -1220,7 +1218,7 @@ subroutine identify_roots(iter)
                 dp(k) = 100.*abs(dp(k)/dpval)
             end do
             if(myid.eq.0) then
-                do j = 1,5
+                do j = 1,idroots
                     call get_barray(cindex(2*j-1),barray)
                     do k = 1,nmodes
                         barray(k) = barray(k) - 1
@@ -1232,8 +1230,8 @@ subroutine identify_roots(iter)
                 if(nstates.eq.2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
                 if(nstates.eq.3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
                 if(nstates.eq.4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
+                write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
             end if
-            if(myid.eq.0) write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
         !Compute spin-orbit parameters, if requested
             if(i.le.soroots)then
                 do j = 1,i-1
