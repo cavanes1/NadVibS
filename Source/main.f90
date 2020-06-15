@@ -49,7 +49,7 @@ program main
     call ga_sync()
     call read_basis()
     call read_constants()
-    if(myid==0) then
+    if (myid == 0 ) then
         call memory_test(usermem,reqmem)
         if(usermem<reqmem) write(*,'(1x,A71)')'Warning: estimated memory requirement is larger than user specification'
         write(*,*)'Scratch files written to: '//adjustl(outdir)

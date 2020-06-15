@@ -16,16 +16,16 @@ subroutine read_cmdline(ierr,memory,dir)
     nargs = iargc()
     do i = 1,nargs
         call getarg(i,argbuf)
-        if(setmem.eq.1.and.(trim(argbuf).ne.trim(args(2)))) then
+        if(setmem==1.and.(trim(argbuf).ne.trim(args(2)))) then
            read(argbuf,*)memory
            setmem = 0
         end if
-        if(setout.eq.1.and.(trim(argbuf).ne.trim(args(1)))) then
+        if(setout==1.and.(trim(argbuf).ne.trim(args(1)))) then
            dir = trim(adjustl(argbuf))//'/'
            setout = 0
         end if
-        if(trim(argbuf).eq.trim(args(1))) setmem = 1
-        if(trim(argbuf).eq.trim(args(2))) setout = 1
+        if(trim(argbuf)==trim(args(1))) setmem = 1
+        if(trim(argbuf)==trim(args(2))) setout = 1
     end do
 end subroutine read_cmdline
 
@@ -37,7 +37,7 @@ subroutine read_basis()
 #include 'global.fh'
     integer                      :: i,j,istat
     integer                      :: numut
-    if(myid.eq.0) call get_keywords()
+    if(myid==0) call get_keywords()
     call ga_sync()
     call mpi_bcast(ordr,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
     call mpi_bcast(idroots,1,MPI_INTEGER8,0,MPI_COMM_WORLD,istat)
@@ -117,7 +117,8 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
         allocate(dvec(nmodes))
         allocate(tmat(nmodes**2))
     end if
-    if(myid.eq.0) then!Only the root process will be able to see this file...
+    if(myid==0) then!Only the root process will be able to see this file...
+        write(*,*)'Reading diabatic Hamiltonian...'
         open(POTFILE,file='nadvibs.in',access='sequential',form='formatted')
             read(POTFILE,*); read(POTFILE,*)aomega(1:nmodes)
             do i = 1,nstblks
@@ -148,7 +149,7 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
     end if
     do i = 1,nstblks
         do j = 1,ordr
-            if(myid.eq.0)write(*,'(1x,A7,I3,A8,I3)')'Block =',i,' order =',j
+            if(myid==0) write(*,'(1x,A7,I3,A8,I3)')'Block =',i,' order =',j
             call setintarray(otab,ordr,int(1))
             !My preference is to use pseudo nmodes+1 counter satisfying former digit >= latter digit,
             !corresponding to the direct sum of an ordr-th order tensor's 1st dimension vector
@@ -165,20 +166,13 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
                     if(otab(l)<otab(l+1)) otab(l)=otab(l+1)
                 end do
                 !End of otab generation
-                if(myid.eq.0) then
-                    write(*,'(1x,A6)',advance='no')'otab ='
-                    do l=1,j-1
-                        write(*,'(I5)',advance='no')otab(l)
-                    end do
-                    write(*,'(I5)')otab(j)
-                end if
                 call union(j,otab,cnt,uniq)
                 if(abs(POTterms(k,j,i)).ge.ztoler)then
                     newterm = .true.
                     do n = 1,nztrms(cnt)
                         termchk = .true. 
                         do p = 1,cnt
-                            if(uniq(p).ne.nztemp1(cnt,n,2*p-1).or.count(otab(1:j).eq.uniq(p)).ne.nztemp1(cnt,n,2*p))termchk=.false.
+                            if(uniq(p).ne.nztemp1(cnt,n,2*p-1).or.count(otab(1:j)==uniq(p)).ne.nztemp1(cnt,n,2*p))termchk=.false.
                         end do
                         if(termchk)then
                             newterm=.false.
@@ -190,7 +184,7 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
                         nztrms(cnt) = nztrms(cnt) + 1
                         do n = 1,cnt
                             nztemp1(cnt,nztrms(cnt),2*n-1) = uniq(n)
-                            nztemp1(cnt,nztrms(cnt),2*n)   = count(otab(1:j).eq.uniq(n))
+                            nztemp1(cnt,nztrms(cnt),2*n)   = count(otab(1:j)==uniq(n))
                         end do
                         nztemp1(cnt,nztrms(cnt),2*cnt+1) = 1
                         nztemp1(cnt,nztrms(cnt),2*cnt+2) = i
@@ -238,11 +232,14 @@ subroutine read_constants()!Read nadvibs.in and number the potential term (Hd ex
         end do
         ioff = ioff + nztrms(i)
     end do
-    write(*,'(1x,A15)',advance='no')'Non-zero terms:'
-    do i=1,ordr-1
-        write(*,'(I10)',advance='no')nztrms(i)
-    end do
-    write(*,'(I10)')nztrms(ordr)
+    if (myid == 0) then
+        write(*,'(1x,A15)',advance='no')'Non-zero terms:'
+        do i=1,ordr-1
+            write(*,'(I10)',advance='no')nztrms(i)
+        end do
+        write(*,'(I10)')nztrms(ordr)
+        write(*,*)'Diabatic Hamiltonian has been read'
+    end if
     deallocate(POTterms)
     deallocate(nztemp1)
     deallocate(nztemp2)
@@ -305,7 +302,6 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
             do k = 1,i
                 pordr = pordr + nzindx(2*k,ioff+j)
             end do
-            write(*,'(1x,A7,I3,A17,I7,A10,I3)')'order =',i,', serial number =',j,', porder =',pordr
             k = 1
             do
                 if(k.gt.nzblks(1,ioff+j)) exit
@@ -334,7 +330,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     !Temporary -- only one mode may be excited in istate
         j=0
         do i = 1,nmodes
-            if(istate(i).gt.0.and.j.eq.0)then; j=1
+            if(istate(i).gt.0.and.j==0)then; j=1
             else; istate(i)=0; end if
         end do
     write(OUTFILE,*); write(OUTFILE,'(a)')'  Initial state specification:'
@@ -404,15 +400,15 @@ subroutine initialize_elements()
         status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q1",zero,nstates,q1)
         status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q2",zero,nstates,q2)
         status = GA_CREATE(MT_F_DBL,dimen,nstates,"Q3",zero,nstates,q3)
-        if(myid.eq.0)write(unit=OUTFILE,fmt=1000)
+        if(myid==0)write(unit=OUTFILE,fmt=1000)
         do i = 1,nproc
-            if(myid.eq.0)write(unit=OUTFILE,fmt=1001)i
+            if(myid==0)write(unit=OUTFILE,fmt=1001)i
             call NGA_DISTRIBUTION(q1,i-1,qlo,qhi)
-            if(myid.eq.0)write(unit=OUTFILE,fmt=1002)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            if(myid==0)write(unit=OUTFILE,fmt=1002)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
             call NGA_DISTRIBUTION(q2,i-1,qlo,qhi)
-            if(myid.eq.0)write(unit=OUTFILE,fmt=1003)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            if(myid==0)write(unit=OUTFILE,fmt=1003)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
             call NGA_DISTRIBUTION(q3,i-1,qlo,qhi)
-            if(myid.eq.0)write(unit=OUTFILE,fmt=1004)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
+            if(myid==0)write(unit=OUTFILE,fmt=1004)qlo(1),qhi(1),qlo(2),qhi(2),(qhi(1)-qlo(1)+1)*qhi(2)
             seglen = nint(1.*(qhi(1) - qlo(1) + 1.)/nseg)
             do j = 1,nseg
                 vbounds((i-1)*nseg+j,1) = qlo(1) + (j-1)*seglen 
@@ -420,7 +416,7 @@ subroutine initialize_elements()
             end do
             vbounds(i*nseg,2) = qhi(1)
         end do
-        if(myid.eq.0) then
+        if(myid==0) then
             write(unit=OUTFILE,fmt=1005)
             do i = 1,nproc
                 write(unit=OUTFILE,fmt=1001)i
@@ -487,7 +483,7 @@ subroutine initialize_elements()
             do i = 1,ordr
                 call MPI_ALLREDUCE(ntdet(1:nstblks,i),ntsum(1:nstblks,i),nstblks,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,istat)
             end do
-            if(myid.eq.0)then!Print out the results of the term counting
+            if(myid==0)then!Print out the results of the term counting
                 write(OUTFILE,1008)
                 trm1 = 0
                 do i = 1,nstblks
@@ -559,7 +555,7 @@ subroutine initialize_elements()
         write(procindex,'(i4)')myid
         procindex = adjustl(procindex)
         if(restartrun) then!If restarting from previous computation
-            if(myid.eq.0) call load_restartinfo(vecload)
+            if(myid==0) call load_restartinfo(vecload)
             nload = iiter - 1
             call ga_sync()
             call mpi_bcast(vecload,1,MPI_LOGICAL,0,MPI_COMM_WORLD,istat)
@@ -604,7 +600,7 @@ subroutine initialize_elements()
             call GA_ZERO(q2)
         end if
     call system_clock(totend,tcount,tmx)
-    if(myid.eq.0) then
+    if(myid==0) then
         write(OUTFILE,'(a)') ' '
         write(OUTFILE,'(a)') '  Initialization complete.'
         write(OUTFILE,1013)1.*(totend-totstart)/tcount
@@ -615,7 +611,7 @@ subroutine initialize_elements()
             call generate_initialvec()
             beta(0) = Sqrt(GA_DDOT(q3,q3))
         end if
-        if(myid.eq.0) write(OUTFILE,1014)
+        if(myid==0) write(OUTFILE,1014)
         call ga_sync()
         call system_clock(totstart,tcount,tmx)
     1020 format('x=',i3,' nelems(1,x)=',i6,' nelems(2,x)=',i6)
@@ -665,7 +661,7 @@ subroutine update_lanczos(iter)
         call ga_sync()
     end if
     call system_clock(iterend,tcount,tmx)
-    if(myid.eq.0) then
+    if(myid==0) then
         write(unit=OUTFILE,fmt=1000)iter
         write(unit=OUTFILE,fmt=1001)1.*(iterend-iterstart)/tcount 
     end if
@@ -816,7 +812,7 @@ subroutine Hv(iter)
     call ga_sync()
     deallocate(scr1)
     call system_clock(tend,tcount,tmx)
-    if(myid.eq.0.and.iter.le.niter)write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
+    if(myid==0.and.iter.le.niter)write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
     iterend = tend
     1001 format(3x,' - Total matrix-vector product:          ',f14.3,' secs.')
 end subroutine Hv
@@ -836,9 +832,9 @@ subroutine lanczos_step(iter)
     call ga_sync()
     beta(iter) = Sqrt(GA_DDOT(q3,q3))
     call system_clock(tend,tcount,tmx)
-    if(myid.eq.0) then
+    if(myid==0) then
         write(unit=OUTFILE,fmt=1001)1.*(tend-iterend)/tcount
-        if(.not.orthog.or.iter.eq.1)write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
+        if(.not.orthog.or.iter==1)write(unit=OUTFILE,fmt=1002)1.*(tend-iterstart)/tcount
     end if
     iterend = tend
     1001 format(3x,' - Take Lanczos step:                    ',f14.3,' secs.')
@@ -877,7 +873,7 @@ subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the la
             omega(2,i) = omega(1,i)
             omega(1,i) = dp
         end do
-        if(Mod(iter,chkorthog).eq.0) then
+        if(Mod(iter,chkorthog)==0) then
             call setmatrix(ocheck,two,iter-1,zerodp)
             do i = 1,iter-1
                 call read_ga(q1,ARCHIVE,i)
@@ -889,7 +885,7 @@ subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the la
             do i = 1,iter-1
                 do k = 1,2
                    if(abs(omega(k,i)).lt.abs(ocheck(k,i))) then
-                      if(myid.eq.0) write(*,1001)iter,iter+k-1,i,omega(k,i),ocheck(k,i)
+                      if(myid==0) write(*,1001)iter,iter+k-1,i,omega(k,i),ocheck(k,i)
                       omega(k,i) = ocheck(k,i)
                    end if
                 end do
@@ -897,9 +893,9 @@ subroutine set_omega(iter)!Sets the omega array & checks orthogonality of the la
         end if
     end if
     call system_clock(tend,tcount,tmx)
-    if(myid.eq.0.and.(orthogexact.or.Mod(iter,chkorthog).eq.0)) then
+    if(myid==0.and.(orthogexact.or.Mod(iter,chkorthog)==0)) then
         write(unit=OUTFILE,fmt=1002)1.*(tend-iterend)/tcount
-    elseif(myid.eq.0) then
+    elseif(myid==0) then
         write(unit=OUTFILE,fmt=1003)1.*(tend-iterend)/tcount
     end if
     iterend = tend
@@ -994,7 +990,7 @@ subroutine partial_orthog(iter)
         beta(iter) = Sqrt(GA_DDOT(q3,q3))
     end if
     call system_clock(tend,tcount,tmx)
-    if(myid.eq.0) then
+    if(myid==0) then
         if(northog.gt.0) then
             write(unit=OUTFILE,fmt=1000)loindex(1),roindex(1),1.*(tend-iterend)/tcount
         else
@@ -1021,7 +1017,7 @@ subroutine make_restart(iter)!Save alpha and beta coefficents to restart.log
     call system_clock(totend,tcount,tmx)
     write(procindex,'(i4)')myid
     procindex = adjustl(procindex)
-    if(myid.eq.0) then
+    if(myid==0) then
         write(unit=OUTFILE,fmt='(a)')'  - Lanczos Iterations Completed - '
         write(unit=OUTFILE,fmt=1003)1.*(totend-totstart)/tcount
         open(unit=RESTARTFILE,file='restart.log',status='replace')
@@ -1043,12 +1039,11 @@ subroutine make_restart(iter)!Save alpha and beta coefficents to restart.log
     end if
     call ga_sync()
     rlen = vbounds(myid*nseg+nseg,2) - vbounds(myid*nseg+1,1) + 1
-    open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),access='direct', &
-         status='replace',form='unformatted',recl=8*rlen)
-    rewind(QRESTART)
-    call write_ga(q1,QRESTART,1)
-    call write_ga(q2,QRESTART,2)
-    call write_ga(q3,QRESTART,3)
+    open(unit=QRESTART,file=trim(adjustl(outdir))//'nadvibs.35.'//trim(procindex),&
+    access='direct',status='replace',form='unformatted',recl=8*rlen)  
+        call write_ga(q1,QRESTART,1)
+        call write_ga(q2,QRESTART,2)
+        call write_ga(q3,QRESTART,3)
     close(QRESTART)
     1003 format('  Time Required: ',f14.5,' secs.')
 end subroutine make_restart
@@ -1152,11 +1147,11 @@ subroutine identify_roots(iter)
     write(procindex,'(i4)')myid
     procindex = adjustl(procindex)
     ld(1) = nstates 
-    if(nroots.gt.0.and.myid.eq.0)then
+    if(nroots.gt.0.and.myid==0)then
         open(unit=ROOTINFO,file='rootinfo.dat',status='replace')
     end if
     if(soroots.gt.0)then
-        if(myid.eq.0)then
+        if(myid==0)then
             open(unit=SOINFO,file='sodata.in',status='replace')
             rewind(unit=SOINFO)
         end if
@@ -1169,7 +1164,7 @@ subroutine identify_roots(iter)
     do i = 1,nroots
         if(Tints(i).gt.intfactor)intfactor=Tints(i)
     end do
-    if(myid.eq.0) then
+    if(myid==0) then
         write(unit=ROOTINFO,fmt=1000)nroots
         if(soroots.gt.0) then
             write(unit=SOINFO,fmt=1001)soroots
@@ -1177,8 +1172,8 @@ subroutine identify_roots(iter)
             do i = 1,soroots
                 write(unit=SOINFO,fmt=1003)i,Tvals(i)*AU2EV,Sqrt(Tints(i)/intfactor)*Tsign(i)
             end do
-            if(nstates.eq.2)write(unit=SOINFO,fmt=1004)
-            if(nstates.eq.3)write(unit=SOINFO,fmt=1005)
+            if(nstates==2)write(unit=SOINFO,fmt=1004)
+            if(nstates==3)write(unit=SOINFO,fmt=1005)
         end if
     end if
     call ga_sync()
@@ -1192,9 +1187,9 @@ subroutine identify_roots(iter)
         end do
         if(i.le.soroots) call write_ga(q1,EIGVECS,i)
         call ga_sync()
-        if(myid.eq.0) write(unit=ROOTINFO,fmt=1006)i
+        if(myid==0) write(unit=ROOTINFO,fmt=1006)i
         !Analyze Eigenvectors
-            if(myid.eq.0) then
+            if(myid==0) then
                 write(ROOTINFO,*); write(unit=ROOTINFO,fmt=1007)i
                 write(unit=ROOTINFO,fmt=1008)Tvals(i)*AU2WAVE,Tvals(i)*AU2EV,Tints(i)/intfactor
             end if
@@ -1217,7 +1212,7 @@ subroutine identify_roots(iter)
             do k = 1,nstates
                 dp(k) = 100.*abs(dp(k)/dpval)
             end do
-            if(myid.eq.0) then
+            if(myid==0) then
                 do j = 1,idroots
                     call get_barray(cindex(2*j-1),barray)
                     do k = 1,nmodes
@@ -1227,9 +1222,9 @@ subroutine identify_roots(iter)
                     write(unit=ROOTINFO,fmt=1010)barray
                 end do
                 write(unit=ROOTINFO,fmt='(a)')' '
-                if(nstates.eq.2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
-                if(nstates.eq.3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
-                if(nstates.eq.4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
+                if(nstates==2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
+                if(nstates==3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
+                if(nstates==4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
                 write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
             end if
         !Compute spin-orbit parameters, if requested
@@ -1248,14 +1243,14 @@ subroutine identify_roots(iter)
                         end do
                     end do
                     call ga_sync()
-                    if(myid.eq.0) then
-                        if(nstates.eq.2)write(unit=SOINFO,fmt=1013)i,j,dp(1),dp(2)
-                        if(nstates.eq.3)write(unit=SOINFO,fmt=1014)i,j,dp(1),dp(2),dp(3),i,j,dp(4),dp(5),dp(6)
+                    if(myid==0) then
+                        if(nstates==2)write(unit=SOINFO,fmt=1013)i,j,dp(1),dp(2)
+                        if(nstates==3)write(unit=SOINFO,fmt=1014)i,j,dp(1),dp(2),dp(3),i,j,dp(4),dp(5),dp(6)
                     end if
                 end do
             end if
     end do
-    if(myid.eq.0) then
+    if(myid==0) then
         if(soroots.gt.0) close(unit=SOINFO)
         write(unit=ROOTINFO,fmt='(a)') ' '
         write(unit=ROOTINFO,fmt='(a)') '------------ FINISHED EXECUTION ------------'   
@@ -1302,7 +1297,7 @@ subroutine release_memory()
     deallocate(basind); deallocate(basdif)
     deallocate(bstart); deallocate(rcshft); deallocate(nelems)
     if(savevecs) close(ARCHIVE)
-    if(myid.eq.0) close(unit=RESTARTFILE)
+    if(myid==0) close(unit=RESTARTFILE)
     lstat = GA_DESTROY(q1)
     if(.not.lstat)print *,'ERROR in GA_DESTROY(q1), ID=',myid
     lstat = GA_DESTROY(q2)

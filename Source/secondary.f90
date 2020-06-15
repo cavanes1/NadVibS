@@ -371,7 +371,10 @@ subroutine generate_initialvec()
     real*8,dimension(:),allocatable::Cm,Cmbuf,Cn,Cnbuf
     if(neworigin) then
         !Initialize variables and such
-        if(myid==0) write(OUTFILE,1001)
+        if(myid==0) then
+            write(OUTFILE,1001)
+            write(*,*)'Generating seed vector by computing ANION/ORIGIN overlap...'
+        end if
         ld(1) = hi(1) - lo(1) + 1
         lbuf = int((vbounds(1,2) - vbounds(1,1)+1)*nstates/(3*nmodes+2))
         nlev = 0
@@ -779,10 +782,13 @@ subroutine generate_initialvec()
     d1 = GA_DDOT(q3,q3)
     if(myid==0)write(OUTFILE,1024)Sqrt(d1),d1
     call system_clock(totstart,tcount,tmx)
-    if(myid==0)write(OUTFILE,1002)1.*(totstart-totend)/tcount
+    if(myid==0) then
+        write(OUTFILE,1002)1.*(totstart-totend)/tcount
+        write(*,*)'Seed vector has been generated'
+    end if
     !format
-        1000 format(/,'  ',70('*'),/,'  Generating Seed Vector using ANION basis...')
-        1001 format(/,'  ',70('*'),/,'  Generating Seed Vector by computing ANION/ORIGIN overlap...')
+        1000 format(/,'  ',70('*'),/,'  Generating seed vector using ANION basis...')
+        1001 format(/,'  ',70('*'),/,'  Generating seed vector by computing ANION/ORIGIN overlap...')
         1002 format(/,'  Time Required: ',f14.3,' secs.',/,'  ',70('*'),/)
         1003 format('  COMPUTED LEVEL ',i6,' of ',i6)
         1004 format('  LEVEL ',i5,', Number of terms:     ',i12)
