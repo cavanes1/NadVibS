@@ -1,6 +1,6 @@
 '''
-Renormalize, rescale, invert, shift the spectrum
-Throw out the lines with 0 intensity
+Normalize, rescale, invert, shift the spectrum
+Throw out the points with 0 intensity
 
 File format: 2 columns to be (x, y)
 '''
@@ -16,7 +16,8 @@ def parse_args() -> argparse.Namespace: # Command line input
     parser.add_argument('-n','--normalize', action='store_true', help='normalize intensity to let max = 1')
     parser.add_argument('-r','--rescale', type=float, default=1.0, help='rescale intensity (default = 1)')
     parser.add_argument('-i','--invert', action='store_true', help='invert position axis')
-    parser.add_argument('-s','--shift', type=float, default=0.0, help='shift position, if(invert): shift after inversion (default = 0)')
+    parser.add_argument('-sm','--shift_maximum', type=float, help='shift the maximum to')
+    parser.add_argument('-s','--shift', type=float, help='shift the peaks by')
     args = parser.parse_args()
     return args
 
@@ -32,8 +33,11 @@ if __name__ == "__main__":
     if args.normalize:      y /= numpy.max(y)
     if args.rescale != 1.0: y *= args.rescale
     if args.invert:         x  = -x
-    if args.shift != 0.0:   x += args.shift
+    if args.shift_maximum != None:
+        x += args.shift_maximum - x[y.argmax()]
+    elif args.shift != None:
+        x += args.shift
     # Output
     with open(args.output,'w') as f:
         for i in range(n):
-            if(y[i]!=0): print(x[i],y[i],sep='    ',file=f)
+            if y[i] != 0: print(x[i], y[i], sep='    ', file=f)
