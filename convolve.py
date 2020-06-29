@@ -84,8 +84,8 @@ if __name__ == "__main__":
                 left  = args.start
                 right = args.stop
             else:
-                left  = args.xc[0]
-                right = args.xc[xc.shape[0]-1]
+                left  = xc[0]
+                right = xc[xc.shape[0]-1]
         plt.plot(grid, envelope, color='blue', label='convolution')
         for i in range(x.shape[0]):
             if x[i] >= left and x[i] <= right:
