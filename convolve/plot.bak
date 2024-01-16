@@ -1,0 +1,11 @@
+set terminal postscript eps enhanced color font "Times-New-Roman:Bold,16"
+set output 'spec.eps'
+
+set border 31 lw 2
+
+set xlabel 'Binding Energy (eV)'
+set ylabel 'Intensity'
+
+set xrange [2.7:2.9]
+
+p 'output' u 1:2 w l lc 1 lw 3 title ''

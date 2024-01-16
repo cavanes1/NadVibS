@@ -82,7 +82,7 @@ program main
 !---------- Clean up ------------
     call ga_terminate()
     call mpi_finalize(istat)
-    if(myid.eq.0) write(*,*)'Mission complete'
+    if(myid.eq.0) write(*,*)'NadVibs terminated.'
 !------------- End --------------
 
 end program main

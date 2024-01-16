@@ -249,7 +249,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     use progdata, only: ordr,natoms,nstates,nmodes,niter,dimen,orthog,orthogexact,maxstor,nfunc,ztoler, &
                         chkorthog,nproc,epsilon,maxdisk,statew,restartrun,iiter,soroots,bjiconv,nseg,   &
                         nirreps,npirrep,aomega,bomega,istate,nstblks,AU2WAVE,nzindx,nztrms,nzblks,zero,neworigin
-    use filedata, only: outdir,OUTFILE,ShowTime
+    use filedata, only: outdir,OUTFILE,timestamp
     implicit none
     real*8, intent(in)    :: umem,rmem
     integer                         :: i,j,k,l,pordr,ioff
@@ -260,7 +260,7 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     write(OUTFILE,'(a)')   'NadVibS: nonadiabatic vibronic spectrum simulation package'
     write(OUTFILE,'(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
     write(OUTFILE,'(a)')
-    call ShowTime()
+    call timestamp()
     write(unit=OUTFILE,fmt='(a)') 'Calculation begins.'
     write(OUTFILE,'(a)')
     write(OUTFILE,'(a)')   'Input parameters read from basis.in:'
@@ -1113,9 +1113,9 @@ subroutine compute_eigenvalues(iter)!Computes the eigenvalues of the H
 end subroutine compute_eigenvalues
 
 subroutine print_footer()
-    use filedata, only: OUTFILE,ShowTime
+    use filedata, only: OUTFILE,timestamp
     write(unit=OUTFILE,fmt='(a)') ' '
-    call ShowTime(); write(unit=OUTFILE,fmt='(a)') 'Calculation completed.'
+    call timestamp(); write(unit=OUTFILE,fmt='(a)') 'Calculation completed.'
     close(unit=OUTFILE)
 end subroutine print_footer
 
