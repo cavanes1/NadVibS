@@ -17,7 +17,7 @@ contains
 subroutine ShowTime()!Show date hour minute second
     integer,dimension(8)::time
     call date_and_time(values=time)
-    write(unit=OUTFILE,fmt='(I4,1x,A4,1x,I2,1x,A5,1x,I2,1x,A3,1x,I2,A1,I2,A1,I2)')time(1),'year',time(2),'month',time(3),'day',time(5),':',time(6),':',time(7)
+    write(unit=OUTFILE,fmt='(I4,A1,I2,A1,1x,I2,2x,I2,A1,I2,A1,I2)')time(1),'-',time(2),'-',time(3),'-',time(5),':',time(6),':',time(7)
 end subroutine ShowTime
 
 end module filedata

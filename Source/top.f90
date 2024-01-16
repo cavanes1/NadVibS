@@ -259,9 +259,9 @@ subroutine print_basis(umem,rmem)!Print a summary of job control information
     open(unit=OUTFILE,file='output.dat',status='replace')
     write(OUTFILE,'(a)')   'NadVibS: nonadiabatic vibronic spectrum simulation package'
     write(OUTFILE,'(a)')   'Originate from NADVIBS.X by Michael Schuurman 2007'
-    write(OUTFILE,'(a)')   'Yifan Shen 2019'
     write(OUTFILE,'(a)')
     call ShowTime()
+    write(unit=OUTFILE,fmt='(a)') 'Calculation begins.'
     write(OUTFILE,'(a)')
     write(OUTFILE,'(a)')   'Input parameters read from basis.in:'
     write(OUTFILE,'(a)')   '------------------------------------'
@@ -1115,7 +1115,7 @@ end subroutine compute_eigenvalues
 subroutine print_footer()
     use filedata, only: OUTFILE,ShowTime
     write(unit=OUTFILE,fmt='(a)') ' '
-    call ShowTime(); write(unit=OUTFILE,fmt='(a)')'Mission complete'
+    call ShowTime(); write(unit=OUTFILE,fmt='(a)') 'Calculation completed.'
     close(unit=OUTFILE)
 end subroutine print_footer
 
