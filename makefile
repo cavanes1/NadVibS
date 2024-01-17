@@ -5,8 +5,8 @@
 ######################################
 
 # Flags for user to tune
-GA  = /work1/private/guanyafu/ga
-MPI = /work1/private/guanyafu/openmpi
+GA  = /home/cavanes1/C/ga-5.8.2/GA
+MPI = /data/apps/linux-centos8-cascadelake/intel-19.1.2.254/openmpi-3.1.6-d5iqzgx77lspks5kuha5bexs6ikhjrl7
 
 OBJ = progdata.o filedata.o yarkony.o function.o secondary.o top.o main.o
 
