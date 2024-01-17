@@ -5,31 +5,22 @@
 ######################################
 
 # Flags for user to tune
-FFLAGS = -m64 -xCORE-AVX2 -mtune=core-avx2 -no-prec-div -fp-model fast=2 -O3
-GA  = 
-MPI = 
-# On my laptop
-# GA  = /home/yshen/Software/Programming/ga-5.4/openmpi-intel
-# MPI = /home/yshen/Software/Programming/openmpi-3.1.4/intel
-# On MARCC
-# GA  = /home-4/yshen57@jhu.edu/data/yshen/Software/ga-5.4_i8
-# MPI = /software/apps/mpi/openmpi/3.1/intel/17.0
+GA  = /work1/private/guanyafu/ga
+MPI = /work1/private/guanyafu/openmpi
+
+OBJ = progdata.o filedata.o yarkony.o function.o secondary.o top.o main.o
 
 # User does not have to take care of following variables
-compiler = $(MPI)/bin/mpifort
-flag = -mkl -I$(GA)/include -I$(MPI)/include -fpp \
--i8 -integer-size 64 -auto -assume byterecl $(FFLAGS)
+compiler = $(MPI)/bin/mpif90
+FFLAGS = -O3 -fpp -i8 -auto -assume byterecl -I$(GA)/include -I$(MPI)/include
 lib = $(addprefix $(GA)/lib/, libcomex.a libga.a libarmci.a)
-src = $(addprefix Source/, progdata.f90 filedata.f90 \
-yarkony.f90 function.f90 secondary.f90 top.f90 main.f90)
+LDFLAGS = -L/work1/soft/intel2018/mkl/lib/intel64 -lmkl_scalapack_ilp64 -lmkl_intel_ilp64 -lmkl_core -lmkl_sequential -lmkl_blacs_intelmpi_ilp64 -lpthread -lm
 
-# release
-NadVibS.exe: $(src)
-	$(compiler) $(flag) -ipo $^ $(lib) -o $@
+NadVibS.exe: $(OBJ)
+	$(compiler) $(FFLAGS) $(OBJ) -o NadVibS.exe $(lib) $(LDFLAGS)
 
-# debug
-debug.exe: main.o top.o secondary.o function.o yarkony.o progdata.o filedata.o
-	$(compiler) $(flag) $^ $(lib) -o $@
+%.o: %.f90
+	$(compiler) $(FFLAGS) -c $< -o $@
 
-%.o: Source/%.f90
-	$(compiler) $(flag) -c $<
+clean:
+	rm -f *.o *.mod a.out *.x *.a *.exe
