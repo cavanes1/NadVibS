@@ -1225,6 +1225,7 @@ subroutine identify_roots(iter)
                 if(nstates==2)write(unit=ROOTINFO,fmt=1011)dp(1),dp(2)
                 if(nstates==3)write(unit=ROOTINFO,fmt=1012)dp(1),dp(2),dp(3)
                 if(nstates==4)write(unit=ROOTINFO,fmt=1016)dp(1),dp(2),dp(3),dp(4)
+                if(nstates==5)write(unit=ROOTINFO,fmt=1017)dp(1),dp(2),dp(3),dp(4),dp(5)
                 write(unit=ROOTINFO,fmt='(a)')' --------------------------------------------------------------'
             end if
         !Compute spin-orbit parameters, if requested
@@ -1276,6 +1277,7 @@ subroutine identify_roots(iter)
     1011 format(' Percent State (1,2): (',f6.2,' %, ',f6.2,' %)')
     1012 format(' Percent State (1,2,3): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
     1016 format(' Percent State (1,2,3,4): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
+    1017 format(' Percent State (1,2,3,4,5): (',f6.2,' %, ',f6.2,' %, ',f6.2,' %, ',f6.2,' %, ',f6.2,' %)') 
     1013 format(i5,1x,i5,2x,es14.6,1x,es14.6)
     1014 format(i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6,/i5,1x,i5,2x,es14.6,1x,es14.6,1x,es14.6)
 end subroutine identify_roots
