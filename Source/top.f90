@@ -1161,7 +1161,7 @@ subroutine identify_roots(iter)
     call make_tmatrix(T,iter)
     call compute_ritzsystem(T,iter,bji,Tvals,Tvecs,Tints,Tsign)
     intfactor = 0
-    do i = 1,iter
+    do i = 1,nroots
         if(Tints(i).gt.intfactor)intfactor=Tints(i)
     end do
     if(myid==0) then
@@ -1178,7 +1178,7 @@ subroutine identify_roots(iter)
     end if
     call ga_sync()
     !Compute Eigenvectors
-    do i = 1,iter
+    do i = 1,nroots
         call GA_ZERO(q1)
         dpval = 1.D0
         do k = 1,iter

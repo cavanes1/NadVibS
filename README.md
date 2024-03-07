@@ -47,7 +47,7 @@ NadVibS requires 2 input files: nadvibs.in and basis.in (as well as restart.log 
 | npirr     | | number of normal modes in each irreducible representation |
 | shiftref  | | 0, do not use new origin; else, use new origin |
 | bconv     | 0 | -lg( convergence tolerence for eigen value ) |
-| idroots   | 0 | how many of the lead contributors to a vibronic level to identify |
+| idroots   | 0 | how many of the lead contributors to a vibronic level to identify, and this also defines how many vibronic levels to perform this identification on |
 | soroots   | 0 | number of roots to compute spin orbit parameters |
 | reorthog  | 0 | >0, request re-orthogonalization; >1, exact dot products are to be used to monitor lanczos vector orthogonality  |
 | chkorthog | 100 | every how many iterations compute exact dot products if using recurrence |
