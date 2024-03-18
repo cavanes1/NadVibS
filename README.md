@@ -1,4 +1,6 @@
 # NadVibS
+Property of the Yarkony Group at Johns Hopkins University.
+
 NadVibS is a nonadiabatic vibrational spectrum simulation package.
 It originates from NADVIBS.X by former [Yarkony Group](https://github.com/yarkonygrp/) member [Michael Schuurman](https://github.com/mschuurman) in 2007, who is now leading [Schuurman Group](https://github.com/schuurman-group).
 
